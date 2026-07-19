@@ -1,0 +1,1 @@
+"""Notifier (Slack) port adapters."""

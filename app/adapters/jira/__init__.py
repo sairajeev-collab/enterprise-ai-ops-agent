@@ -1,0 +1,1 @@
+"""Ticket (Jira) port adapters."""
