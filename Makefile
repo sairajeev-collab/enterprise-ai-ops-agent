@@ -1,6 +1,6 @@
 # Developer shortcuts. `make help` lists targets.
 .DEFAULT_GOAL := help
-.PHONY: help install lint type test cov up down worker api migrate seed
+.PHONY: help install lint type test cov check up down worker api migrate seed
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -21,6 +21,8 @@ test: ## Run the test suite
 
 cov: ## Run tests with coverage gate (>80%)
 	pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+
+check: lint type cov ## Run the full CI gate locally (lint + typecheck + coverage)
 
 up: ## Start local stack (postgres, redis, qdrant, ollama, api, worker)
 	docker compose up --build

@@ -1,5 +1,11 @@
 # Enterprise AI Operations Agent
 
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)
+![Typing](https://img.shields.io/badge/mypy-strict-blue)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
+
 An AI system that turns inbound operational work — emails, support tickets, Slack
 messages, PDFs, invoices, meeting notes — into finished actions: it classifies the
 request, extracts the details, grounds itself in company knowledge, opens a Jira
@@ -121,8 +127,11 @@ the adapters and their contract tests are identical.
 | Jira (real) | `JIRA_MODE=real` | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` |
 | Email (real) | `EMAIL_MODE=real` | `SMTP_HOST`/`SMTP_PORT`/credentials |
 
-Slack is the designated real end-to-end integration; the LLM defaults to real
-(Ollama) so the "brain" is genuine even offline. See
+The shipped default is sandbox for every integration, so the stack runs with no
+secrets or model downloads. The real adapters are fully implemented and unit-tested
+(HTTP/SMTP/Qdrant paths driven by in-memory transports); flipping a single `*_MODE`
+switches to them. Slack (Incoming Webhook) and the local Ollama LLM are the
+designated real end-to-end integrations. See
 [ADR-0005](docs/adr/0005-real-vs-sandbox-integrations.md).
 
 ## API
@@ -188,13 +197,31 @@ tests/        unit + integration (hermetic)
   validation + control-character sanitization, env-only secrets, locked CORS, pinned
   dependencies. See [ADR-0006](docs/adr/0006-security-authn-authz.md).
 
-## Screenshots
+## Demo
 
-_Placeholders — add captures when demoing:_
+Submitting a billing request and reading back the completed run (sandbox mode):
 
-- `docs/img/swagger.png` — the `/docs` OpenAPI UI
-- `docs/img/slack-notification.png` — a real Slack post from the notify node
-- `docs/img/request-status.png` — a completed request with its artifacts
+```jsonc
+// POST /v1/requests?inline=true
+{ "channel": "email",
+  "body": "I need a refund for my invoice urgently. from Jane Smith jane@acme.com" }
+
+// GET /v1/requests/{id}  ->  200
+{
+  "id": "b1f0...", "status": "completed",
+  "request_type": "billing", "priority": "urgent", "confidence": 0.92,
+  "artifacts": [
+    { "kind": "ticket",       "ref": "OPS-1", "payload": { "url": "https://.../browse/OPS-1" } },
+    { "kind": "reply",        "ref": "<...@ops-agent>", "payload": { "sent": true } },
+    { "kind": "notification", "ref": "",      "payload": { "sent": true } },
+    { "kind": "report",       "ref": "",      "payload": { "report": "Operations Summary ..." } }
+  ]
+}
+```
+
+A message with no actionable intent (low classification confidence) short-circuits
+to `needs_review` and takes **no** irreversible action — no ticket, reply, or Slack
+post — which you can see reflected in the returned `status` and artifacts.
 
 ## What I'd do next
 
