@@ -1,0 +1,12 @@
+"""Aggregate router mounting every endpoint group."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from app.api import routes_auth, routes_health, routes_requests
+
+api_router = APIRouter()
+api_router.include_router(routes_health.router)
+api_router.include_router(routes_auth.router)
+api_router.include_router(routes_requests.router)
