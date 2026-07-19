@@ -26,7 +26,7 @@ from app.db.repository import Repository
 from app.deps import Container, build_container
 from app.domain.enums import Channel, RunStatus
 from app.domain.state import AgentState
-from app.graph.build import NODE_NEEDS_REVIEW, NODE_REPORT, stream_pipeline
+from app.graph.build import NODE_NEEDS_REVIEW, NODE_REPORT
 from app.logging import configure_logging, correlation_id, get_logger
 
 logger = get_logger(__name__)
@@ -63,7 +63,7 @@ async def process_request(container: Container, request_id: str) -> None:
 
         try:
             final = state
-            async for node_name, delta in stream_pipeline(container.node_context, state):
+            async for node_name, delta in container.pipeline.stream(state):
                 final = final.model_copy(update=delta)
                 async with session_scope(container.session_factory) as session:
                     await Repository(session).save_step(request_id, node_name, _to_jsonable(delta))

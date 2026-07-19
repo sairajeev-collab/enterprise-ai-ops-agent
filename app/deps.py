@@ -32,6 +32,7 @@ from app.adapters.slack.webhook import SlackWebhookNotifier
 from app.config import IntegrationMode, Settings
 from app.db.engine import create_engine, create_session_factory, session_scope
 from app.db.repository import Repository
+from app.graph.build import Pipeline
 from app.graph.context import NodeConfig, NodeContext
 from app.jobs.queue import JobQueue
 from app.logging import get_logger
@@ -51,6 +52,7 @@ class Container:
     session_factory: async_sessionmaker[AsyncSession]
     redis: Redis
     node_context: NodeContext
+    pipeline: Pipeline
     queue: JobQueue
     rate_limiter: RateLimiter
     _closables: list[_Closable] = field(default_factory=list)
@@ -165,6 +167,7 @@ def build_container(settings: Settings, *, redis: Redis | None = None) -> Contai
         session_factory=session_factory,
         redis=redis,
         node_context=node_context,
+        pipeline=Pipeline(node_context),
         queue=JobQueue(redis, key=settings.job_queue_key),
         rate_limiter=RateLimiter(
             redis,

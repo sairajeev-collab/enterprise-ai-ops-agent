@@ -1,10 +1,13 @@
 """Assemble and run the LangGraph pipeline.
 
-``build_graph`` wires the pure node functions into an explicit ``StateGraph``,
-binding each to the injected :class:`NodeContext`. The structure here is the
-source of truth for the Mermaid diagram in the README. Two entry points are
-exposed: ``run_pipeline`` (whole-graph invoke, used by tests and the inline API
-path) and ``stream_pipeline`` (per-node updates, used by the worker to checkpoint).
+``build_graph`` wires the pure node functions into an explicit ``StateGraph``
+bound to an injected :class:`NodeContext`. This structure is the source of truth
+for the Mermaid diagram in the README.
+
+Compilation is not free, so it happens once: :class:`Pipeline` compiles the graph
+in its constructor and is built a single time per process (see
+:func:`app.deps.build_container`). ``run`` invokes the whole graph; ``stream``
+yields per-node deltas for the worker to checkpoint.
 """
 
 from __future__ import annotations
@@ -76,27 +79,28 @@ def build_graph(ctx: NodeContext) -> Any:
     return builder.compile()
 
 
-async def run_pipeline(ctx: NodeContext, state: AgentState) -> AgentState:
-    """Run the whole pipeline and return the final, validated state."""
+class Pipeline:
+    """A compiled pipeline. Compile once, run many times."""
 
-    graph = build_graph(ctx)
-    result = await graph.ainvoke(state)
-    # LangGraph returns the merged state (dict or model depending on version);
-    # normalize back into our typed model either way.
-    return AgentState.model_validate(result)
+    def __init__(self, ctx: NodeContext) -> None:
+        self._graph = build_graph(ctx)
 
+    async def run(self, state: AgentState) -> AgentState:
+        """Run the whole pipeline and return the final, validated state."""
 
-async def stream_pipeline(
-    ctx: NodeContext, state: AgentState
-) -> AsyncIterator[tuple[str, dict[str, Any]]]:
-    """Yield ``(node_name, delta)`` after each node executes.
+        result = await self._graph.ainvoke(state)
+        # LangGraph returns the merged state (dict or model depending on version);
+        # normalize back into our typed model either way.
+        return AgentState.model_validate(result)
 
-    The worker consumes this to checkpoint progress into ``run_step`` as the
-    pipeline advances.
-    """
+    async def stream(self, state: AgentState) -> AsyncIterator[tuple[str, dict[str, Any]]]:
+        """Yield ``(node_name, delta)`` after each node executes.
 
-    graph = build_graph(ctx)
-    async for update in graph.astream(state, stream_mode="updates"):
-        # astream(updates) yields {node_name: delta_dict} per completed node.
-        for node_name, delta in update.items():
-            yield node_name, delta
+        The worker consumes this to checkpoint progress into ``run_step`` as the
+        pipeline advances.
+        """
+
+        async for update in self._graph.astream(state, stream_mode="updates"):
+            # astream(updates) yields {node_name: delta_dict} per completed node.
+            for node_name, delta in update.items():
+                yield node_name, delta

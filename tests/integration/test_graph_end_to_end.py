@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from app.domain.enums import RequestType, RunStatus
 from app.domain.state import AgentState
-from app.graph.build import run_pipeline
+from app.graph.build import Pipeline
 from app.graph.context import NodeContext
 
 pytestmark = pytest.mark.integration
@@ -20,7 +20,7 @@ async def test_happy_path_runs_all_nodes(sandbox_ctx: NodeContext) -> None:
         "Refund request",
         "I need a refund for my invoice urgently. from Jane Smith jane@acme.com",
     )
-    final = await run_pipeline(sandbox_ctx, state)
+    final = await Pipeline(sandbox_ctx).run(state)
 
     assert final.status is RunStatus.COMPLETED
     assert final.classification is not None
@@ -36,7 +36,7 @@ async def test_happy_path_runs_all_nodes(sandbox_ctx: NodeContext) -> None:
 async def test_low_confidence_routes_to_review_without_side_effects(
     sandbox_ctx: NodeContext,
 ) -> None:
-    final = await run_pipeline(sandbox_ctx, _state("Hi", "hello there friend, nice weather"))
+    final = await Pipeline(sandbox_ctx).run(_state("Hi", "hello there friend, nice weather"))
 
     assert final.status is RunStatus.NEEDS_REVIEW
     assert final.review_reason is not None
@@ -49,8 +49,9 @@ async def test_low_confidence_routes_to_review_without_side_effects(
 async def test_pipeline_is_idempotent_on_replay(sandbox_ctx: NodeContext) -> None:
     # Re-running with the same request id must not create a second ticket.
     state = _state("Login issue", "I cannot login, password reset broken. from Al Bee al@x.io")
-    first = await run_pipeline(sandbox_ctx, state)
-    second = await run_pipeline(sandbox_ctx, _state("Login issue", state.raw_body))
+    pipeline = Pipeline(sandbox_ctx)
+    first = await pipeline.run(state)
+    second = await pipeline.run(_state("Login issue", state.raw_body))
 
     assert first.ticket is not None and second.ticket is not None
     assert first.ticket.key == second.ticket.key
