@@ -30,6 +30,9 @@ eval: ## Run the evaluation harness with a regression gate (sandbox model)
 smoke: ## Run live smoke tests against a real LLM (needs Ollama; else skips)
 	pytest -m smoke
 
+bench: ## Run the performance benchmark (sandbox model, in-process)
+	python -m scripts.benchmark
+
 up: ## Start local stack (postgres, redis, qdrant, ollama, api, worker)
 	docker compose up --build
 
