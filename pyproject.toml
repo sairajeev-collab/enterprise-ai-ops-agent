@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "enterprise-ai-ops-agent"
+version = "0.1.0"
+description = "AI operations agent that triages inbound work through an explicit LangGraph pipeline."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+# Runtime dependencies are pinned for reproducible builds. Bumps are deliberate,
+# reviewed changes, not incidental drift.
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.1",
+    "sqlalchemy==2.0.36",
+    "asyncpg==0.30.0",
+    "alembic==1.14.0",
+    "redis==5.2.1",
+    "httpx==0.28.1",
+    "langgraph==0.2.62",
+    "qdrant-client==1.12.2",
+    "pyjwt==2.10.1",
+    "bcrypt==4.2.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.2",
+    "pytest-cov==6.0.0",
+    "ruff==0.8.6",
+    "mypy==1.14.1",
+    "fakeredis==2.26.2",
+    "aiosqlite==0.20.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["app", "tests", "scripts"]
+
+[tool.ruff.lint]
+# Sensible, non-pedantic default set: pyflakes, pycodestyle, isort, bugbear,
+# comprehensions, pyupgrade, simplify.
+select = ["E", "F", "I", "B", "C4", "UP", "SIM"]
+# E501: line length is handled by the formatter.
+# B008: FastAPI's dependency injection intentionally calls Depends()/Query() in
+#       argument defaults; it is the framework's idiom, not a bug.
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+# Matches the CI/Docker/deploy runtime. requires-python stays >=3.11.
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+# Third-party libraries without shipped type stubs.
+[[tool.mypy.overrides]]
+module = ["qdrant_client.*", "langgraph.*", "fakeredis.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: end-to-end tests that exercise the full pipeline in sandbox mode",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py", "*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
