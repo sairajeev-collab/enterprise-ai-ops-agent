@@ -14,11 +14,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import signal
+import time
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel
 
+from app import metrics
 from app.adapters.base import AdapterError, PermanentAdapterError, TransientAdapterError
 from app.config import get_settings
 from app.db.engine import session_scope
@@ -61,6 +63,7 @@ async def process_request(container: Container, request_id: str) -> None:
         if state is None:
             return
 
+        started = time.perf_counter()
         try:
             final = state
             async for node_name, delta in container.pipeline.stream(state):
@@ -68,6 +71,7 @@ async def process_request(container: Container, request_id: str) -> None:
                 async with session_scope(container.session_factory) as session:
                     await Repository(session).save_step(request_id, node_name, _to_jsonable(delta))
             await _finalize(container, request_id, final)
+            metrics.JOBS_PROCESSED.labels(status=final.status.value).inc()
             logger.info("request_completed", extra={"status": final.status.value})
 
         except TransientAdapterError as exc:
@@ -77,6 +81,8 @@ async def process_request(container: Container, request_id: str) -> None:
         except Exception as exc:  # noqa: BLE001 - convert to a recorded failure, never crash the loop
             logger.error("request_unexpected_error", exc_info=exc)
             await _handle_failure(container, request_id, exc, attempts, retryable=False)
+        finally:
+            metrics.JOB_LATENCY.observe(time.perf_counter() - started)
     finally:
         correlation_id.reset(token)
 
@@ -185,8 +191,10 @@ async def _handle_failure(
 
     if requeue:
         await container.queue.enqueue(request_id)
+        metrics.JOBS_PROCESSED.labels(status="requeued").inc()
         logger.warning("request_requeued", extra={"request_id": request_id, "attempt": attempts})
     else:
+        metrics.JOBS_PROCESSED.labels(status="failed").inc()
         logger.error("request_failed", extra={"request_id": request_id, "detail": str(error)})
 
 
@@ -205,17 +213,57 @@ async def run_worker(container: Container | None = None) -> None:
 
     stop = asyncio.Event()
     _install_signal_handlers(stop)
+    reaper = asyncio.create_task(_reaper_loop(container, stop))
     logger.info("worker_started")
 
     try:
         while not stop.is_set():
-            request_id = await container.queue.dequeue(timeout_seconds=5)
-            if request_id is not None:
+            request_id = await container.queue.claim(timeout_seconds=5)
+            if request_id is None:
+                continue
+            try:
+                # A claimed job stays on the processing list until acked; if we
+                # crash mid-run the reaper redelivers it. process_request never
+                # raises (it records failures), so ack always runs.
                 await process_request(container, request_id)
+            finally:
+                await container.queue.ack(request_id)
     finally:
         logger.info("worker_stopping")
+        reaper.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await reaper
         if owns_container:
             await container.aclose()
+
+
+async def _reaper_loop(container: Container, stop: asyncio.Event) -> None:
+    """Periodically redeliver jobs abandoned by crashed workers."""
+
+    interval = container.settings.job_reaper_interval_seconds
+    while not stop.is_set():
+        # Wake early if shutdown is signalled; otherwise sweep every interval.
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+        if stop.is_set():
+            return
+        try:
+            redelivered, dead = await container.queue.reap()
+            if redelivered:
+                metrics.JOBS_REDELIVERED.inc(redelivered)
+            if dead:
+                metrics.JOBS_DEAD_LETTERED.inc(dead)
+            if redelivered or dead:
+                logger.warning("jobs_reaped", extra={"redelivered": redelivered, "dead": dead})
+            metrics.QUEUE_DEPTH.labels(queue="pending").set(await container.queue.depth())
+            metrics.QUEUE_DEPTH.labels(queue="processing").set(
+                await container.queue.processing_depth()
+            )
+            metrics.QUEUE_DEPTH.labels(queue="dead_letter").set(
+                await container.queue.dead_letter_depth()
+            )
+        except Exception as exc:  # noqa: BLE001 - a reaper failure must not kill the worker
+            logger.error("reaper_error", exc_info=exc)
 
 
 def _install_signal_handlers(stop: asyncio.Event) -> None:

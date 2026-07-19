@@ -58,8 +58,19 @@ class Settings(BaseSettings):
     # --- Datastores ---
     postgres_dsn: str = "postgresql+asyncpg://ops:ops@localhost:5432/ops"
     redis_url: str = "redis://localhost:6379/0"
-    job_queue_key: str = "ops:jobs"
     max_attempts: int = 3
+
+    # --- Reliable job queue (see app/jobs/queue.py) ---
+    job_queue_key: str = "ops:jobs"
+    # A job claimed but not acknowledged within this window is presumed lost
+    # (worker crashed) and redelivered by the reaper.
+    job_visibility_timeout_seconds: int = 300
+    job_reaper_interval_seconds: int = 30
+    # After this many crash-redeliveries a job is parked on the dead-letter queue.
+    job_max_redeliveries: int = 5
+
+    # --- Ingress limits ---
+    max_request_bytes: int = 1_048_576  # 1 MiB
 
     # --- LLM ---
     llm_mode: IntegrationMode = IntegrationMode.SANDBOX

@@ -168,7 +168,12 @@ def build_container(settings: Settings, *, redis: Redis | None = None) -> Contai
         redis=redis,
         node_context=node_context,
         pipeline=Pipeline(node_context),
-        queue=JobQueue(redis, key=settings.job_queue_key),
+        queue=JobQueue(
+            redis,
+            key=settings.job_queue_key,
+            visibility_timeout_seconds=settings.job_visibility_timeout_seconds,
+            max_redeliveries=settings.job_max_redeliveries,
+        ),
         rate_limiter=RateLimiter(
             redis,
             limit=settings.rate_limit_requests,
