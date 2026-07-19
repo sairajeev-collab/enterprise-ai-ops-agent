@@ -108,8 +108,15 @@ class NotifyMessage(BaseModel):
 class LlmPort(Protocol):
     """Text generation and embedding over an OpenAI-compatible surface."""
 
-    async def complete(self, *, system: str, user: str, temperature: float = 0.0) -> str:
-        """Return a single completion for the given system/user prompt."""
+    async def complete(
+        self, *, system: str, user: str, temperature: float = 0.0, json_mode: bool = False
+    ) -> str:
+        """Return a single completion for the given system/user prompt.
+
+        When ``json_mode`` is set, the adapter requests a strict JSON object from
+        the model (OpenAI-compatible ``response_format``), which the classify and
+        extract nodes rely on for reliable parsing.
+        """
         ...
 
     async def embed(self, texts: list[str]) -> list[list[float]]:

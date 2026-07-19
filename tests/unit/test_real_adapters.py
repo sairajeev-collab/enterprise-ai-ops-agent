@@ -55,6 +55,20 @@ async def test_llm_complete_and_embed_happy_path() -> None:
     assert await llm.embed([]) == []
 
 
+async def test_llm_json_mode_sets_response_format() -> None:
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    llm = _llm(httpx.MockTransport(handler))
+    await llm.complete(system="s", user="u", json_mode=True)
+    assert seen[0]["response_format"] == {"type": "json_object"}
+
+
 async def test_llm_5xx_is_transient() -> None:
     llm = _llm(httpx.MockTransport(lambda r: httpx.Response(500, text="boom")))
     with pytest.raises(TransientAdapterError):

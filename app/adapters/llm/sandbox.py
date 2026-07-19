@@ -50,7 +50,9 @@ _HIGH_WORDS = ("important", "soon", "priority", "blocked")
 
 
 class SandboxLlm(LlmPort):
-    async def complete(self, *, system: str, user: str, temperature: float = 0.0) -> str:
+    async def complete(
+        self, *, system: str, user: str, temperature: float = 0.0, json_mode: bool = False
+    ) -> str:
         task = self._task_of(system)
         if task == "classify":
             return json.dumps(self._classify(user))

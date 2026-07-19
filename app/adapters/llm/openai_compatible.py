@@ -47,7 +47,9 @@ class OpenAICompatibleLlm(LlmPort):
             timeout=timeout_seconds,
         )
 
-    async def complete(self, *, system: str, user: str, temperature: float = 0.0) -> str:
+    async def complete(
+        self, *, system: str, user: str, temperature: float = 0.0, json_mode: bool = False
+    ) -> str:
         payload: dict[str, Any] = {
             "model": self._chat_model,
             "temperature": temperature,
@@ -56,6 +58,9 @@ class OpenAICompatibleLlm(LlmPort):
                 {"role": "user", "content": user},
             ],
         }
+        if json_mode:
+            # Supported by OpenAI, Ollama (>=0.5), vLLM, and most compatible servers.
+            payload["response_format"] = {"type": "json_object"}
         data = await self._post("/chat/completions", payload)
         try:
             return str(data["choices"][0]["message"]["content"]).strip()

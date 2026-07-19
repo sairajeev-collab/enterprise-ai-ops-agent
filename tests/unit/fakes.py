@@ -36,7 +36,9 @@ class StubLlm(LlmPort):
         self._embed_dim = embed_dim
         self.calls: list[tuple[str, str]] = []
 
-    async def complete(self, *, system: str, user: str, temperature: float = 0.0) -> str:
+    async def complete(
+        self, *, system: str, user: str, temperature: float = 0.0, json_mode: bool = False
+    ) -> str:
         self.calls.append((system, user))
         return self._reply
 
@@ -52,7 +54,9 @@ class FlakyLlm(LlmPort):
         self._reply = reply
         self.attempts = 0
 
-    async def complete(self, *, system: str, user: str, temperature: float = 0.0) -> str:
+    async def complete(
+        self, *, system: str, user: str, temperature: float = 0.0, json_mode: bool = False
+    ) -> str:
         self.attempts += 1
         if self._remaining > 0:
             self._remaining -= 1

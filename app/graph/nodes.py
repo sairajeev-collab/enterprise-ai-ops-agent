@@ -13,6 +13,7 @@ as an ordinary instruction; the sandbox model reads it to stay deterministic.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any, cast
 
 from app.adapters.base import (
@@ -78,7 +79,9 @@ async def classify_node(state: AgentState, ctx: NodeContext) -> dict[str, Any]:
     )
     user = f"{state.raw_subject}\n\n{state.raw_body}".strip()
 
-    raw = await _retry(ctx, "llm.classify", lambda: ctx.llm.complete(system=system, user=user))
+    raw = await _retry(
+        ctx, "llm.classify", lambda: ctx.llm.complete(system=system, user=user, json_mode=True)
+    )
 
     try:
         data = _parse_json_object(raw)
@@ -110,7 +113,9 @@ async def extract_node(state: AgentState, ctx: NodeContext) -> dict[str, Any]:
         '"summary": "...", "entities": {}}.'
     )
     raw = await _retry(
-        ctx, "llm.extract", lambda: ctx.llm.complete(system=system, user=state.raw_body)
+        ctx,
+        "llm.extract",
+        lambda: ctx.llm.complete(system=system, user=state.raw_body, json_mode=True),
     )
 
     try:
@@ -295,9 +300,6 @@ async def needs_review_node(state: AgentState, ctx: NodeContext) -> dict[str, An
 # --------------------------------------------------------------------------- #
 # Routing
 # --------------------------------------------------------------------------- #
-from collections.abc import Callable  # noqa: E402  (grouped with routing logic)
-
-
 def make_route_after_classify(threshold: float) -> Callable[[AgentState], str]:
     """Build the conditional edge, closing over the confidence threshold.
 
