@@ -109,3 +109,10 @@ async def test_metrics_endpoint_exposes_prometheus(client: httpx.AsyncClient) ->
     resp = await client.get("/metrics")
     assert resp.status_code == 200
     assert "ops_http_requests_total" in resp.text
+
+
+async def test_demo_ui_served_at_root(client: httpx.AsyncClient) -> None:
+    resp = await client.get("/")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    assert "Enterprise AI Operations Agent" in resp.text
