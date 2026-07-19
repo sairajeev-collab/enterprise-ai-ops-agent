@@ -182,6 +182,21 @@ extraction**, with mean confidence 0.82 on correct vs 0.35 on incorrect
 predictions — which is what justifies the `needs_review` routing threshold. See
 [ADR-0009](docs/adr/0009-evaluation-and-quality-gates.md).
 
+## Performance & capacity
+
+`make bench` runs an in-process harness (sandbox model, SQLite, fakeredis) that
+isolates the overhead *our code* adds. Honest headline: orchestration overhead is
+**~20–35 ms p50 (warm)** per 8-node pipeline with **~6 KiB** transient memory per
+run; end-to-end latency in production is **dominated by the LLM call** (0.5–3 s).
+
+The design makes capacity easy to reason about: ingest is non-blocking (validate +
+insert + enqueue), processing is LLM-bound at `~1/L` jobs/s per worker, and the
+reliable queue decouples them so throughput is **`N/L`** — tuned by worker count.
+Representative load numbers require a deployed environment (Postgres + Redis + a
+real model); the harness, methodology, capacity model, and the exact steps to get
+real numbers are in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md). `/metrics` already
+exposes job latency, throughput, and queue depth for that measurement.
+
 ## Deployment (Fly.io)
 
 The image runs both processes; Fly's `[processes]` maps `app` to the API and
@@ -230,7 +245,13 @@ tests/        unit + integration (hermetic) + smoke (live, self-skipping)
 
 ## Demo
 
-Submitting a billing request and reading back the completed run (sandbox mode):
+A self-contained web UI is served at **`/`** (open `http://localhost:8000/`): log
+in with the dev service account, submit a message, and watch the live pipeline
+light up node-by-node with the classification, ticket, drafted reply, and report.
+It's a thin demonstration surface over the API — no build step, no framework.
+
+Or via the API directly — submitting a billing request and reading back the
+completed run (sandbox mode):
 
 ```jsonc
 // POST /v1/requests?inline=true

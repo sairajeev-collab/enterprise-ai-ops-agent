@@ -31,3 +31,5 @@ Thumbs.db
 # Local data volumes
 data/
 *.sqlite3
+demo.db*
+report.json
