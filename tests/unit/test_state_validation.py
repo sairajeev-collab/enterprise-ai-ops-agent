@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from app.api.schemas import CreateRequest
+from app.config import DEFAULT_JWT_SECRET, Settings
 from app.domain.enums import Priority, RequestType
 from app.domain.state import Classification
 from pydantic import ValidationError
@@ -38,3 +39,32 @@ def test_create_request_rejects_unknown_channel() -> None:
 def test_create_request_enforces_body_length() -> None:
     with pytest.raises(ValidationError):
         CreateRequest(channel="email", body="x" * 50_001)
+
+
+_STRONG_SECRET = "a" * 48
+
+
+def test_production_rejects_default_jwt_secret() -> None:
+    with pytest.raises(ValidationError, match="JWT_SECRET"):
+        Settings(app_env="production", jwt_secret=DEFAULT_JWT_SECRET)
+
+
+def test_production_rejects_real_integration_without_credentials() -> None:
+    with pytest.raises(ValidationError, match="SLACK_MODE=real"):
+        Settings(
+            app_env="production",
+            jwt_secret=_STRONG_SECRET,
+            slack_mode="real",
+            slack_webhook_url="",
+        )
+
+
+def test_production_accepts_strong_secret_and_sandbox_modes() -> None:
+    settings = Settings(app_env="production", jwt_secret=_STRONG_SECRET)
+    assert settings.is_production
+
+
+def test_non_production_tolerates_default_secret() -> None:
+    # Local/CI must remain frictionless with the placeholder secret.
+    settings = Settings(app_env="local", jwt_secret=DEFAULT_JWT_SECRET)
+    assert not settings.is_production

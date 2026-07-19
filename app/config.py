@@ -11,8 +11,11 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The placeholder secret shipped in .env.example. Refused in production.
+DEFAULT_JWT_SECRET = "change-me-in-production-use-a-48-byte-random-secret"
 
 
 class AppEnv(StrEnum):
@@ -42,7 +45,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     # --- Security / JWT ---
-    jwt_secret: str = "change-me-in-production-use-a-48-byte-random-secret"
+    jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_issuer: str = "enterprise-ai-ops-agent"
     jwt_ttl_seconds: int = 3600
     service_account_id: str = "ops-service"
@@ -106,6 +109,40 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env is AppEnv.PRODUCTION
+
+    @model_validator(mode="after")
+    def _enforce_production_safety(self) -> Settings:
+        """Refuse to boot in production with insecure or incomplete config.
+
+        Failing fast at startup is far safer than discovering a placeholder
+        secret or a half-configured integration at first request.
+        """
+
+        if not self.is_production:
+            return self
+
+        problems: list[str] = []
+        if self.jwt_secret == DEFAULT_JWT_SECRET or len(self.jwt_secret) < 32:
+            problems.append("JWT_SECRET must be set to a strong (>=32 char) value")
+
+        required_when_real: list[tuple[IntegrationMode, str, list[tuple[str, str]]]] = [
+            (self.slack_mode, "SLACK", [("SLACK_WEBHOOK_URL", self.slack_webhook_url)]),
+            (
+                self.jira_mode,
+                "JIRA",
+                [("JIRA_EMAIL", self.jira_email), ("JIRA_API_TOKEN", self.jira_api_token)],
+            ),
+            (self.email_mode, "EMAIL", [("SMTP_HOST", self.smtp_host)]),
+        ]
+        for mode, name, fields in required_when_real:
+            if mode is IntegrationMode.REAL:
+                missing = [key for key, value in fields if not value]
+                if missing:
+                    problems.append(f"{name}_MODE=real requires {', '.join(missing)}")
+
+        if problems:
+            raise ValueError("Insecure production configuration: " + "; ".join(problems))
+        return self
 
 
 @lru_cache(maxsize=1)
