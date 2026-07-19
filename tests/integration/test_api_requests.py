@@ -46,9 +46,10 @@ async def test_submit_async_then_worker_processes(
     request_id = resp.json()["id"]
 
     # Simulate the worker draining the queue.
-    queued_id = await container.queue.dequeue(timeout_seconds=1)
+    queued_id = await container.queue.claim(timeout_seconds=1)
     assert queued_id == request_id
     await process_request(container, request_id)
+    await container.queue.ack(request_id)
 
     status = await client.get(f"/v1/requests/{request_id}", headers=auth_headers)
     assert status.json()["status"] == "completed"
@@ -82,3 +83,29 @@ async def test_health_endpoint(client: httpx.AsyncClient) -> None:
     resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
+
+
+async def test_security_headers_present(client: httpx.AsyncClient) -> None:
+    resp = await client.get("/health")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
+
+
+async def test_oversized_body_rejected(
+    client: httpx.AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    oversized = "x" * (1_048_576 + 1)
+    resp = await client.post(
+        "/v1/requests?inline=true",
+        json={"channel": "email", "body": oversized},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 413
+    assert resp.json()["error"]["code"] == "payload_too_large"
+
+
+async def test_metrics_endpoint_exposes_prometheus(client: httpx.AsyncClient) -> None:
+    await client.get("/health")  # generate at least one HTTP metric sample
+    resp = await client.get("/metrics")
+    assert resp.status_code == 200
+    assert "ops_http_requests_total" in resp.text

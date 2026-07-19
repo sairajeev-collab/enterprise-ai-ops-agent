@@ -22,7 +22,7 @@ from app.db.repository import Repository
 from app.deps import build_container
 from app.errors import register_error_handlers
 from app.logging import configure_logging, get_logger
-from app.observability import CorrelationMiddleware, init_error_tracking
+from app.observability import CorrelationMiddleware, SecurityMiddleware, init_error_tracking
 from app.security.auth import hash_password
 
 logger = get_logger(__name__)
@@ -74,7 +74,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Correlation first so it wraps everything, including CORS responses.
+    # Middleware is applied outermost-first in reverse registration order, giving:
+    # CORS -> correlation/metrics -> body-size + security headers -> app.
+    app.add_middleware(SecurityMiddleware, max_body_bytes=settings.max_request_bytes)
     app.add_middleware(CorrelationMiddleware)
     app.add_middleware(
         CORSMiddleware,
