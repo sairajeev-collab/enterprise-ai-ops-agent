@@ -1,6 +1,6 @@
 # Developer shortcuts. `make help` lists targets.
 .DEFAULT_GOAL := help
-.PHONY: help install lint type test cov check up down worker api migrate seed
+.PHONY: help install lint type test cov check eval smoke up down worker api migrate seed
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -10,11 +10,11 @@ install: ## Install runtime + dev dependencies (editable)
 	pip install -e ".[dev]"
 
 lint: ## Ruff lint + format check
-	ruff check app tests scripts
-	ruff format --check app tests scripts
+	ruff check app tests scripts evals
+	ruff format --check app tests scripts evals
 
 type: ## Static type check
-	mypy app
+	mypy app evals
 
 test: ## Run the test suite
 	pytest
@@ -22,7 +22,13 @@ test: ## Run the test suite
 cov: ## Run tests with coverage gate (>80%)
 	pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 
-check: lint type cov ## Run the full CI gate locally (lint + typecheck + coverage)
+check: lint type cov eval ## Run the full CI gate locally (lint + typecheck + coverage + eval)
+
+eval: ## Run the evaluation harness with a regression gate (sandbox model)
+	python -m evals --min-accuracy 0.90
+
+smoke: ## Run live smoke tests against a real LLM (needs Ollama; else skips)
+	pytest -m smoke
 
 up: ## Start local stack (postgres, redis, qdrant, ollama, api, worker)
 	docker compose up --build

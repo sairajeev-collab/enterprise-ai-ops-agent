@@ -32,16 +32,20 @@ jobs:
 
       - name: Ruff (lint + format)
         run: |
-          ruff check app tests scripts
-          ruff format --check app tests scripts
+          ruff check app tests scripts evals
+          ruff format --check app tests scripts evals
 
       - name: Mypy
-        run: mypy app
+        run: mypy app evals
 
       # The suite is hermetic (SQLite + fakeredis + sandbox adapters): no service
       # containers, no secrets. The coverage gate is enforced here.
       - name: Pytest
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+
+      # Regression gate on classification quality using the deterministic sandbox.
+      - name: Evaluation harness
+        run: python -m evals --min-accuracy 0.90
 
   docker:
     name: build image

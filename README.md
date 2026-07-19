@@ -162,6 +162,26 @@ make cov          # with the >80% coverage gate
 make lint type    # ruff + mypy
 ```
 
+## Evaluation & quality gates
+
+Model quality is measured, not assumed. A labeled golden dataset
+([`evals/dataset.py`](evals/dataset.py)) is run through the *production* classify
+and extract nodes; the harness reports accuracy, macro-F1 (per-class
+precision/recall), extraction accuracy, and confidence calibration. The **same
+harness** scores the deterministic sandbox model or a real one — swap with
+`LLM_MODE`.
+
+```bash
+make eval          # sandbox model, fails under 90% accuracy (a CI regression gate)
+LLM_MODE=real python -m evals --json report.json   # score a live model
+make smoke         # live LLM smoke test (needs Ollama; self-skips otherwise)
+```
+
+Current sandbox baseline: **95.8% accuracy, 0.96 macro-F1, 100% email
+extraction**, with mean confidence 0.82 on correct vs 0.35 on incorrect
+predictions — which is what justifies the `needs_review` routing threshold. See
+[ADR-0009](docs/adr/0009-evaluation-and-quality-gates.md).
+
 ## Deployment (Fly.io)
 
 The image runs both processes; Fly's `[processes]` maps `app` to the API and
@@ -190,7 +210,8 @@ app/
   api/        FastAPI routes + schemas
 docs/adr/     architecture decision records
 migrations/   Alembic
-tests/        unit + integration (hermetic)
+evals/        labeled dataset + evaluation harness + metrics
+tests/        unit + integration (hermetic) + smoke (live, self-skipping)
 ```
 
 ## Observability & security
@@ -242,4 +263,4 @@ post — which you can see reflected in the returned `status` and artifacts.
 - **PDF/invoice ingestion adapters** (the channels are modeled; parsing is stubbed
   to text today).
 - **Per-tenant isolation and quotas**; richer authorization than coarse scopes.
-- **Evaluation harness** for classification/extraction quality against a labeled set.
+- **Grow the eval set** and add inter-annotator review; track quality over time in CI.

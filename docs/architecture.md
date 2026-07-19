@@ -120,6 +120,11 @@ enterprise-ai-ops-agent/
 │   ├── script.py.mako
 │   └── versions/
 │       └── 0001_initial_schema.py
+├── evals/                        # offline evaluation harness
+│   ├── dataset.py                # labeled golden set
+│   ├── metrics.py                # precision/recall/F1, extraction accuracy
+│   ├── harness.py                # runs classify/extract over the dataset
+│   └── __main__.py               # `python -m evals` CLI + CI gate
 ├── scripts/
 │   ├── create_token.py           # operator JWT minting CLI
 │   └── seed_knowledge.py         # load seed corpus into Qdrant
