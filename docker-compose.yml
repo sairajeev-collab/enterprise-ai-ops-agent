@@ -1,0 +1,92 @@
+# Local stack. `docker compose up --build` starts Postgres, Redis, Qdrant, the API
+# (which applies migrations on boot), and the worker. Defaults run every
+# integration in SANDBOX mode so first-run needs no secrets and no model downloads.
+#
+# To use real integrations, set the matching *_MODE + credentials in .env, and
+# start the optional Ollama service with:  docker compose --profile llm up
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ops
+      POSTGRES_PASSWORD: ops
+      POSTGRES_DB: ops
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+  # Optional local LLM. Enable with: docker compose --profile llm up
+  # Then: docker compose exec ollama ollama pull llama3.1 && ... pull nomic-embed-text
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+
+  api:
+    build: .
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    env_file: .env
+    environment:
+      POSTGRES_DSN: postgresql+asyncpg://ops:ops@postgres:5432/ops
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      LLM_MODE: ${LLM_MODE:-sandbox}
+      KNOWLEDGE_MODE: ${KNOWLEDGE_MODE:-sandbox}
+      LLM_BASE_URL: http://ollama:11434/v1
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: python -m app.jobs.worker
+    env_file: .env
+    environment:
+      POSTGRES_DSN: postgresql+asyncpg://ops:ops@postgres:5432/ops
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      LLM_MODE: ${LLM_MODE:-sandbox}
+      KNOWLEDGE_MODE: ${KNOWLEDGE_MODE:-sandbox}
+      LLM_BASE_URL: http://ollama:11434/v1
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  qdrantdata:
+  ollamadata:

@@ -1,0 +1,52 @@
+# Fly.io deployment config.
+#
+# One image, two processes: `app` serves the API, `worker` drains the Redis queue.
+# Provision managed datastores and set secrets before the first deploy:
+#
+#   fly launch --no-deploy
+#   fly postgres create && fly postgres attach <pg-app-name>   # sets POSTGRES_DSN
+#   fly redis create                                            # sets REDIS_URL
+#   fly secrets set JWT_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(48))")
+#   fly secrets set SERVICE_ACCOUNT_PASSWORD=... SLACK_MODE=real SLACK_WEBHOOK_URL=...
+#   fly deploy
+#
+# Note: `fly postgres attach` sets DATABASE_URL as postgres://...; set POSTGRES_DSN
+# to the asyncpg form, e.g.
+#   fly secrets set POSTGRES_DSN="postgresql+asyncpg://<user>:<pass>@<host>:5432/<db>"
+
+app = "enterprise-ai-ops-agent"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "production"
+  LOG_LEVEL = "INFO"
+  # Real integrations are enabled via `fly secrets set *_MODE=real` + credentials.
+  LLM_MODE = "sandbox"
+  KNOWLEDGE_MODE = "sandbox"
+
+[processes]
+  app = "sh -c 'alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000'"
+  worker = "python -m app.jobs.worker"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.checks]
+    [http_service.checks.health]
+      method = "GET"
+      path = "/health"
+      interval = "15s"
+      timeout = "3s"
+      grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
