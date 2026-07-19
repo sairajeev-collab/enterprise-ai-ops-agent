@@ -1,0 +1,8 @@
+# Normalize line endings to LF in the repository regardless of contributor OS.
+* text=auto eol=lf
+
+# Binary types that must never be normalized.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
