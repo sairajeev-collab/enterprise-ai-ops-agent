@@ -128,7 +128,8 @@ enterprise-ai-ops-agent/
 │   ├── main.py                   # FastAPI app factory + middleware wiring
 │   ├── config.py                 # pydantic-settings Settings
 │   ├── logging.py                # structured JSON logging setup
-│   ├── observability.py          # request-id middleware + error-tracking hook
+│   ├── observability.py          # request-id + metrics middleware, security headers
+│   ├── metrics.py                # Prometheus metric definitions
 │   ├── deps.py                   # composition root: build ports from Settings
 │   ├── errors.py                 # base typed exceptions + API error handlers
 │   ├── domain/
@@ -182,6 +183,7 @@ enterprise-ai-ops-agent/
 │       ├── __init__.py
 │       ├── schemas.py          # request/response Pydantic models
 │       ├── routes_health.py
+│       ├── routes_metrics.py
 │       ├── routes_auth.py
 │       ├── routes_requests.py  # submit + status + report
 │       └── router.py           # aggregate router

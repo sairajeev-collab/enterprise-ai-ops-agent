@@ -33,10 +33,14 @@ has a sandbox implementation and the LLM defaults to local Ollama.
   node-by-node, and diagrammable. Low-confidence classifications are routed to human
   review instead of taking irreversible actions. See
   [ADR-0003](docs/adr/0003-langgraph-orchestration.md).
-- **Async + idempotent.** Intake returns `202` immediately; a worker drains a Redis
-  queue. Every side-effecting call carries a deterministic idempotency key, so a
-  retry or re-drive never double-creates a ticket, email, or Slack post. See
-  [ADR-0004](docs/adr/0004-async-job-processing-redis.md).
+- **Async, reliable, idempotent.** Intake returns `202` immediately; a worker
+  drains a Redis queue using an at-least-once reliable-queue pattern (claim →
+  process → ack, with a reaper that redelivers jobs from crashed workers and a
+  dead-letter queue for poison messages). Every side-effecting call carries a
+  deterministic idempotency key, so redelivery never double-creates a ticket,
+  email, or Slack post. See
+  [ADR-0004](docs/adr/0004-async-job-processing-redis.md) and
+  [ADR-0008](docs/adr/0008-reliable-queue-and-observability.md).
 
 Full decision log: [`docs/adr/`](docs/adr/).
 
@@ -139,6 +143,7 @@ designated real end-to-end integrations. See
 | Method & path | Auth | Purpose |
 |---------------|------|---------|
 | `GET /health` | public | Liveness + DB/Redis readiness |
+| `GET /metrics` | public | Prometheus metrics (HTTP, jobs, queue depth, dead-letters) |
 | `POST /v1/auth/token` | service creds | Exchange credentials for a JWT |
 | `POST /v1/requests` | `requests:write` | Submit a request (`?inline=true` runs it synchronously) |
 | `GET /v1/requests/{id}` | any valid token | Status + artifacts |
@@ -192,10 +197,15 @@ tests/        unit + integration (hermetic)
 
 - Structured JSON logs with a correlation id propagated across the request/worker
   boundary (`X-Request-ID`).
-- `/health` reports real dependency readiness; optional Sentry hook via `SENTRY_DSN`.
+- `/health` reports real dependency readiness; `/metrics` exposes Prometheus
+  counters/histograms/gauges (request rate + latency, job throughput by status,
+  reaper redeliveries, dead-letter count, live queue depths); optional Sentry hook
+  via `SENTRY_DSN`.
 - JWT (HS256) with coarse scopes, Redis fixed-window rate limiting, strict boundary
-  validation + control-character sanitization, env-only secrets, locked CORS, pinned
-  dependencies. See [ADR-0006](docs/adr/0006-security-authn-authz.md).
+  validation + control-character sanitization, request body-size limits (413) and
+  baseline security headers, fail-fast production config validation, env-only
+  secrets, locked CORS, pinned dependencies. See
+  [ADR-0006](docs/adr/0006-security-authn-authz.md).
 
 ## Demo
 

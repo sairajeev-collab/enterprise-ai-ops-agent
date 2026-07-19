@@ -16,9 +16,15 @@ side effects must be idempotent.
 Intake is split from execution. The FastAPI `POST /v1/requests` endpoint
 validates input, writes a `request` row with status `queued`, enqueues the
 request id onto a Redis list, and returns `202 Accepted` with a status URL. A
-separate **worker** process (`app/jobs/worker.py`) does a blocking pop from
-Redis, loads the request, runs the LangGraph pipeline, and persists progress
-after every node.
+separate **worker** process (`app/jobs/worker.py`) claims a job from the queue,
+loads the request, runs the LangGraph pipeline, and persists progress after every
+node.
+
+Delivery is **at-least-once**: the worker uses a reliable-queue pattern (claim
+into a processing list, acknowledge on completion, redeliver abandoned jobs) with
+a dead-letter queue for poison messages. That design is detailed in
+[ADR-0008](0008-reliable-queue-and-observability.md); the idempotency guarantees
+below are what make redelivery safe.
 
 Idempotency is enforced two ways:
 
