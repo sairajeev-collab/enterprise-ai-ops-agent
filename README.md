@@ -142,14 +142,29 @@ designated real end-to-end integrations. See
 
 | Method & path | Auth | Purpose |
 |---------------|------|---------|
+| `GET /` | public | **Ops Command Center** — dark, glassmorphic single-page UI (Tailwind) that authenticates, submits, and visualizes the pipeline live |
 | `GET /health` | public | Liveness + DB/Redis readiness |
 | `GET /metrics` | public | Prometheus metrics (HTTP, jobs, queue depth, dead-letters) |
 | `POST /v1/auth/token` | service creds | Exchange credentials for a JWT |
-| `POST /v1/requests` | `requests:write` | Submit a request (`?inline=true` runs it synchronously) |
+| `POST /v1/requests` | `requests:write` | Submit a request. `?inline=true` runs it synchronously; add `&stream=true` to stream per-node progress as **SSE** |
+| `POST /v1/requests/batch` | `requests:write` | Submit up to 50 requests at once; returns the accepted ids |
+| `GET /v1/requests` | any valid token | Paginated list of recent requests (`?limit=&offset=`) |
 | `GET /v1/requests/{id}` | any valid token | Status + artifacts |
 | `GET /v1/requests/{id}/report` | `reports:read` | Manager report |
+| `GET /system/queue` | `reports:read` | Queue insights: `{pending, processing, dead_letter}` |
+| `POST /system/queue/replay/{id}` | `requests:write` | Requeue a dead-lettered job back to pending |
 
-Interactive docs at `/docs`.
+Requests may include an optional `callback_url` (http/https); the worker POSTs the
+final status there on completion or failure. Interactive docs at `/docs`.
+
+**Live streaming (SSE):**
+
+```bash
+curl -N -X POST "localhost:8000/v1/requests?inline=true&stream=true" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"channel":"slack","body":"Production is down, outage across all regions."}'
+# event: node_start / node_delta per node, then event: complete
+```
 
 ## Testing
 
