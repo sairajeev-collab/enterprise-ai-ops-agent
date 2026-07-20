@@ -32,4 +32,8 @@ Thumbs.db
 data/
 *.sqlite3
 demo.db*
+
+# Generated
 report.json
+PROJECT_BUNDLE.md
+PROJECT_BUNDLE.pdf

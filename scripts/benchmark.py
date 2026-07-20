@@ -37,7 +37,6 @@ os.environ.update(
 
 import fakeredis.aioredis  # noqa: E402
 import httpx  # noqa: E402
-
 from app.config import get_settings  # noqa: E402
 from app.db.engine import session_scope  # noqa: E402
 from app.db.models import Base  # noqa: E402
