@@ -18,6 +18,7 @@ import time
 from enum import Enum
 from typing import Any
 
+import httpx
 from pydantic import BaseModel
 
 from app import metrics
@@ -36,7 +37,7 @@ logger = get_logger(__name__)
 _TERMINAL_STEPS = {NODE_REPORT, NODE_NEEDS_REVIEW}
 
 
-def _to_jsonable(value: Any) -> Any:
+def to_jsonable(value: Any) -> Any:
     """Convert node deltas (models/enums) into JSON-safe structures for storage."""
 
     if isinstance(value, BaseModel):
@@ -44,9 +45,9 @@ def _to_jsonable(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, dict):
-        return {k: _to_jsonable(v) for k, v in value.items()}
+        return {k: to_jsonable(v) for k, v in value.items()}
     if isinstance(value, list):
-        return [_to_jsonable(v) for v in value]
+        return [to_jsonable(v) for v in value]
     return value
 
 
@@ -69,8 +70,9 @@ async def process_request(container: Container, request_id: str) -> None:
             async for node_name, delta in container.pipeline.stream(state):
                 final = final.model_copy(update=delta)
                 async with session_scope(container.session_factory) as session:
-                    await Repository(session).save_step(request_id, node_name, _to_jsonable(delta))
-            await _finalize(container, request_id, final)
+                    await Repository(session).save_step(request_id, node_name, to_jsonable(delta))
+            await finalize_run(container, request_id, final)
+            await fire_callback(container, request_id)
             metrics.JOBS_PROCESSED.labels(status=final.status.value).inc()
             logger.info("request_completed", extra={"status": final.status.value})
 
@@ -128,7 +130,7 @@ async def _load_state(container: Container, request_id: str) -> AgentState | Non
         )
 
 
-async def _finalize(container: Container, request_id: str, final: AgentState) -> None:
+async def finalize_run(container: Container, request_id: str, final: AgentState) -> None:
     async with session_scope(container.session_factory) as session:
         repo = Repository(session)
         request = await repo.get_request(request_id)
@@ -165,6 +167,38 @@ async def _finalize(container: Container, request_id: str, final: AgentState) ->
         await repo.update_request(request, **fields)
 
 
+async def fire_callback(container: Container, request_id: str) -> None:
+    """POST the final status to the request's callback_url, if it has one.
+
+    Best-effort: a callback failure is logged but never fails the job or the run.
+
+    Security note: callback_url is caller-supplied, so this is an SSRF surface. It
+    is validated to be http(s) at intake; a production deployment should further
+    restrict it to an allowlist of egress hosts (see README "What I'd do next").
+    """
+
+    async with session_scope(container.session_factory) as session:
+        request = await Repository(session).get_request(request_id)
+        if request is None or not request.callback_url:
+            return
+        url = request.callback_url
+        payload = {
+            "request_id": request.id,
+            "status": request.status,
+            "request_type": request.request_type,
+            "priority": request.priority,
+            "error": request.error,
+            "artifacts": [{"kind": a.kind, "ref": a.ref} for a in request.artifacts],
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(url, json=payload)
+        logger.info("callback_delivered", extra={"request_id": request_id})
+    except httpx.HTTPError as exc:
+        logger.warning("callback_failed", extra={"request_id": request_id, "detail": str(exc)})
+
+
 async def _handle_failure(
     container: Container,
     request_id: str,
@@ -196,6 +230,7 @@ async def _handle_failure(
     else:
         metrics.JOBS_PROCESSED.labels(status="failed").inc()
         logger.error("request_failed", extra={"request_id": request_id, "detail": str(error)})
+        await fire_callback(container, request_id)
 
 
 async def run_worker(container: Container | None = None) -> None:
