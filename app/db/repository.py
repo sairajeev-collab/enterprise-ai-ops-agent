@@ -38,13 +38,16 @@ class Repository:
         return await self._session.get(ServiceAccount, account_id)
 
     # --- requests ----------------------------------------------------------- #
-    async def create_request(self, *, channel: str, subject: str, body: str) -> Request:
+    async def create_request(
+        self, *, channel: str, subject: str, body: str, callback_url: str | None = None
+    ) -> Request:
         request = Request(
             id=str(uuid.uuid4()),
             channel=channel,
             raw_subject=subject,
             raw_body=body,
             status="queued",
+            callback_url=callback_url,
         )
         self._session.add(request)
         await self._session.flush()  # populate defaults without ending the txn
@@ -58,6 +61,18 @@ class Repository:
         )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_requests(self, *, limit: int = 20, offset: int = 0) -> list[Request]:
+        """Return recent requests (newest first) without eager-loading children."""
+
+        stmt = (
+            select(Request)
+            .order_by(Request.created_at.desc(), Request.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars())
 
     async def update_request(self, request: Request, **fields: object) -> None:
         for key, value in fields.items():

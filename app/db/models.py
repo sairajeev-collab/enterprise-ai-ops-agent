@@ -49,6 +49,9 @@ class Request(Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Optional webhook the worker POSTs the final status to on completion/failure.
+    callback_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow

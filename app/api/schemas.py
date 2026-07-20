@@ -41,6 +41,8 @@ class CreateRequest(BaseModel):
     channel: Channel
     subject: str = Field(default="", max_length=MAX_SUBJECT)
     body: str = Field(min_length=1, max_length=MAX_BODY)
+    # Optional webhook the worker POSTs the final status to on completion/failure.
+    callback_url: str | None = Field(default=None, max_length=2048)
 
     @field_validator("subject", "body")
     @classmethod
@@ -54,11 +56,39 @@ class CreateRequest(BaseModel):
             raise ValueError("body must contain printable content")
         return value
 
+    @field_validator("callback_url")
+    @classmethod
+    def _validate_callback(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("callback_url must be an http(s) URL")
+        return value
+
+
+class BatchCreateRequest(BaseModel):
+    requests: list[CreateRequest] = Field(min_length=1, max_length=50)
+
 
 class RequestAccepted(BaseModel):
     id: str
     status: RunStatus
     status_url: str
+
+
+class RequestSummary(BaseModel):
+    """Lightweight row for the paginated list endpoint (no artifacts)."""
+
+    id: str
+    channel: Channel
+    status: RunStatus
+    request_type: RequestType | None = None
+    priority: Priority | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
 
 
 class ArtifactOut(BaseModel):
