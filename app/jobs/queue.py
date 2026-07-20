@@ -92,6 +92,20 @@ class JobQueue:
                 redelivered += 1
         return redelivered, dead
 
+    async def requeue_from_dead(self, request_id: str) -> bool:
+        """Move a specific job from the dead-letter list back to pending.
+
+        Returns True if the id was present on the dead-letter list. Its delivery
+        counter is cleared so it gets a fresh set of attempts.
+        """
+
+        removed = await self._redis.lrem(self._dead, 0, request_id)  # type: ignore[misc]
+        if not removed:
+            return False
+        await self._redis.hdel(self._deliveries, request_id)  # type: ignore[misc]
+        await self._redis.lpush(self._pending, request_id)  # type: ignore[misc]
+        return True
+
     async def depth(self) -> int:
         return int(await self._redis.llen(self._pending))  # type: ignore[misc]
 
