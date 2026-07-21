@@ -39,6 +39,13 @@ dev = [
     "fakeredis==2.26.2",
     "aiosqlite==0.20.0",
 ]
+# Distributed tracing (ADR-0019). Optional: the app runs and traces are a no-op
+# without these; install to export spans to an OTLP collector.
+otel = [
+    "opentelemetry-sdk==1.29.0",
+    "opentelemetry-exporter-otlp-proto-http==1.29.0",
+    "opentelemetry-instrumentation-fastapi==0.50b0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

@@ -30,7 +30,7 @@ from app.adapters.base import (
     TransientAdapterError,
 )
 from app.config import get_settings
-from app.cost import LlmUsage, open_ledger
+from app.cost import LlmUsage, current_total_usd, open_ledger
 from app.db.engine import session_scope
 from app.db.repository import Repository
 from app.deps import Container, build_container
@@ -38,6 +38,7 @@ from app.domain.enums import Channel, RunStatus
 from app.domain.state import AgentState
 from app.graph.build import NODE_NEEDS_REVIEW, NODE_REPORT, Pipeline
 from app.logging import configure_logging, correlation_id, get_logger
+from app.tracing import configure_tracing, span
 
 logger = get_logger(__name__)
 
@@ -75,9 +76,15 @@ async def process_request(container: Container, request_id: str) -> None:
         pipeline = await _select_pipeline(container)
         try:
             final = state
+            # One span per request covers the whole pipeline run, tagged with the
+            # request id so a trace joins the API enqueue to this worker run
+            # (ADR-0019). A no-op unless OTel is configured.
             # Ledger is scoped to this run; the LLM adapters append to it, and we
             # persist the rows after the run so cost is never lost mid-pipeline.
-            with open_ledger() as ledger:
+            with (
+                span("pipeline.run", **{"request.id": request_id}) as run_span,
+                open_ledger() as ledger,
+            ):
                 async for node_name, delta in pipeline.stream(state):
                     final = final.model_copy(update=delta)
                     async with session_scope(container.session_factory) as session:
@@ -85,6 +92,8 @@ async def process_request(container: Container, request_id: str) -> None:
                             request_id, node_name, to_jsonable(delta)
                         )
                 await finalize_run(container, request_id, final)
+                run_span.set_attribute("run.status", final.status.value)
+                run_span.set_attribute("run.cost_usd", current_total_usd())
             await _persist_cost(container, request_id, final, ledger)
             await fire_callback(container, request_id)
             metrics.JOBS_PROCESSED.labels(status=final.status.value).inc()
@@ -293,6 +302,7 @@ async def run_worker(container: Container | None = None) -> None:
 
     settings = get_settings()
     configure_logging(settings.log_level)
+    configure_tracing(settings)
     owns_container = container is None
     container = container or build_container(settings)
 

@@ -1,0 +1,21 @@
+# Prometheus scrape config for local observability (ADR-0019).
+# The API and worker both expose Prometheus metrics at /metrics; point Grafana at
+# this Prometheus and import ops/grafana/dashboards/ops-agent.json.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: ops-agent-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          component: api
+
+  # The worker serves the same client-side metric registry. In docker-compose it
+  # shares the API's process metrics via the same image; if you run the worker as
+  # its own metrics endpoint, add its target here.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

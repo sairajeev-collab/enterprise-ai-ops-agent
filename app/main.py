@@ -24,6 +24,7 @@ from app.errors import register_error_handlers
 from app.logging import configure_logging, get_logger
 from app.observability import CorrelationMiddleware, SecurityMiddleware, init_error_tracking
 from app.security.auth import hash_password
+from app.tracing import configure_tracing
 
 logger = get_logger(__name__)
 
@@ -44,11 +45,30 @@ async def _bootstrap_service_account(app: FastAPI, settings: Settings) -> None:
     logger.info("service_account_bootstrapped", extra={"id": settings.service_account_id})
 
 
+def _instrument_fastapi(app: FastAPI) -> None:
+    """Auto-instrument HTTP handlers with OTel spans, if the extra is installed.
+
+    Only reached when tracing was successfully configured, so the SDK is present;
+    still guarded so a partial install degrades to a warning, not a crash.
+    """
+
+    try:
+        from opentelemetry.instrumentation.fastapi import (  # type: ignore[import-not-found]
+            FastAPIInstrumentor,
+        )
+    except ImportError:
+        logger.warning("otel_fastapi_instrumentation_missing")
+        return
+    FastAPIInstrumentor.instrument_app(app)
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
     init_error_tracking(settings)
+    if configure_tracing(settings):
+        _instrument_fastapi(app)
 
     app.state.container = build_container(settings)
 

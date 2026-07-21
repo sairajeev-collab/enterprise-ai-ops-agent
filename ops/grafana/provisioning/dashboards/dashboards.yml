@@ -1,0 +1,12 @@
+# Load every dashboard JSON under ops/grafana/dashboards on startup.
+apiVersion: 1
+
+providers:
+  - name: ops-agent
+    orgId: 1
+    folder: "Ops Agent"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards

@@ -119,6 +119,11 @@ class Settings(BaseSettings):
 
     # --- Observability ---
     sentry_dsn: str = ""
+    # OpenTelemetry tracing is opt-in and dependency-free by default (ADR-0019):
+    # left unset, tracing is a no-op and the OTel SDK isn't even imported. Set the
+    # OTLP endpoint (and install the `otel` extra) to export spans to a collector.
+    otel_exporter_otlp_endpoint: str = ""
+    otel_service_name: str = "ops-agent"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
