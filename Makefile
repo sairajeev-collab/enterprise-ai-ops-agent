@@ -33,6 +33,9 @@ smoke: ## Run live smoke tests against a real LLM (needs Ollama; else skips)
 bench: ## Run the performance benchmark (sandbox model, in-process)
 	python -m scripts.benchmark
 
+idempotency-check: ## Assert every external idempotency key is deterministic
+	python -m scripts.idempotency_check
+
 up: ## Start local stack (postgres, redis, qdrant, ollama, api, worker)
 	docker compose up --build
 

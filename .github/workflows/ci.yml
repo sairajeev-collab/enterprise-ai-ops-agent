@@ -47,6 +47,11 @@ jobs:
       - name: Evaluation harness
         run: python -m evals --min-accuracy 0.90
 
+      # Fail the build if any external idempotency key becomes non-deterministic
+      # (the "47 duplicate tickets" guard, ADR-0017).
+      - name: Idempotency check
+        run: python -m scripts.idempotency_check
+
   docker:
     name: build image
     runs-on: ubuntu-latest
