@@ -23,8 +23,10 @@ from app.domain.enums import Channel
 from app.domain.state import AgentState
 from app.graph.context import NodeConfig, NodeContext
 from app.graph.nodes import classify_node, extract_node
+from app.guardrails import check_reply
 
 from evals.dataset import CASES, EvalCase
+from evals.guardrails import CLEAN_DRAFT, POISONED_DRAFTS
 from evals.metrics import (
     ClassificationReport,
     ExtractionReport,
@@ -50,6 +52,20 @@ class EvalSummary:
     extraction: ExtractionReport
     mean_confidence_correct: float
     mean_confidence_incorrect: float
+    # Which model produced these numbers. Without this a report is unattributable —
+    # "88% accuracy" is meaningless if you can't say 88% *of what model*.
+    model: str
+    guardrail_catch_rate: float
+    guardrail_support: int
+
+
+def model_label(settings: Settings) -> str:
+    """A stable, human-readable name for the model under test, so every report is
+    attributable to what actually produced it."""
+
+    if settings.llm_mode is IntegrationMode.REAL:
+        return settings.llm_chat_model
+    return "sandbox (deterministic stub)"
 
 
 def build_llm(settings: Settings) -> LlmPort:
@@ -99,7 +115,23 @@ async def run_cases(ctx: NodeContext, cases: list[EvalCase]) -> list[CaseResult]
     return results
 
 
-def summarize(results: list[CaseResult]) -> EvalSummary:
+def guardrail_catch_rate() -> tuple[float, int]:
+    """Fraction of known-bad drafts the guardrail rejects (and it must pass the
+    clean control). Deterministic — no model involved — so it's cheap to run every
+    time and gates against a weakened guardrail (ADR-0018)."""
+
+    caught = sum(
+        1
+        for case in POISONED_DRAFTS
+        if not check_reply(case.body, customer_email=case.customer_email).ok
+    )
+    clean_ok = check_reply(CLEAN_DRAFT.body, customer_email=CLEAN_DRAFT.customer_email).ok
+    # The clean control failing is a hard miss: fold it in as a "not caught".
+    rate = caught / len(POISONED_DRAFTS) if POISONED_DRAFTS else 1.0
+    return (rate if clean_ok else 0.0, len(POISONED_DRAFTS))
+
+
+def summarize(results: list[CaseResult], *, model: str) -> EvalSummary:
     type_pairs = [(r.case.expected_type, r.predicted_type) for r in results]
     priority_pairs = [(r.case.expected_priority, r.predicted_priority) for r in results]
     email_pairs = [(r.case.expected_email, r.predicted_email) for r in results]
@@ -107,20 +139,28 @@ def summarize(results: list[CaseResult]) -> EvalSummary:
     correct_conf = [r.confidence for r in results if r.case.expected_type == r.predicted_type]
     wrong_conf = [r.confidence for r in results if r.case.expected_type != r.predicted_type]
 
+    catch_rate, catch_support = guardrail_catch_rate()
+
     return EvalSummary(
         classification=classification_report(type_pairs),
         priority_accuracy=accuracy(priority_pairs),
         extraction=extraction_report(email_pairs),
         mean_confidence_correct=_mean(correct_conf),
         mean_confidence_incorrect=_mean(wrong_conf),
+        model=model,
+        guardrail_catch_rate=catch_rate,
+        guardrail_support=catch_support,
     )
 
 
 def to_dict(summary: EvalSummary) -> dict[str, Any]:
     report = summary.classification
     return {
+        "model": summary.model,
         "n": report.n,
         "classification_accuracy": round(report.accuracy, 4),
+        "guardrail_catch_rate": round(summary.guardrail_catch_rate, 4),
+        "guardrail_support": summary.guardrail_support,
         "classification_macro_f1": round(report.macro_f1, 4),
         "priority_accuracy": round(summary.priority_accuracy, 4),
         "email_extraction_accuracy": round(summary.extraction.email_accuracy, 4),
@@ -144,8 +184,11 @@ def format_report(summary: EvalSummary) -> str:
     lines = [
         "Evaluation summary",
         "==================",
+        f"model:                     {summary.model}",
         f"cases:                     {report.n}",
         f"classification accuracy:   {report.accuracy:.1%}",
+        f"guardrail catch rate:      {summary.guardrail_catch_rate:.1%} "
+        f"(n={summary.guardrail_support})",
         f"classification macro-F1:   {report.macro_f1:.3f}",
         f"priority accuracy:         {summary.priority_accuracy:.1%}",
         f"email extraction accuracy: {summary.extraction.email_accuracy:.1%} "

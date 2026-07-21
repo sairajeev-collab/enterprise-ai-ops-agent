@@ -29,6 +29,11 @@ BUDGET_TRIPPED = Counter(
     "ops_budget_cap_tripped_total", "Runs forced to the sandbox model by the daily cap"
 )
 
+# Output guardrails (ADR-0018): drafted replies held back instead of emailed.
+REPLY_GUARDRAIL_BLOCKED = Counter(
+    "ops_reply_guardrail_blocked_total", "Customer replies held by the output guardrail"
+)
+
 # Re-exported so callers don't import prometheus_client directly.
 CONTENT_TYPE = CONTENT_TYPE_LATEST
 

@@ -31,7 +31,9 @@ from app.domain.enums import (
 from app.domain.state import AgentState, Classification, Extracted, Reply
 from app.graph.context import NodeContext
 from app.graph.retry import retry_async
+from app.guardrails import check_reply
 from app.logging import get_logger
+from app.metrics import REPLY_GUARDRAIL_BLOCKED
 
 logger = get_logger(__name__)
 
@@ -202,9 +204,13 @@ async def reply_node(state: AgentState, ctx: NodeContext) -> dict[str, Any]:
     )
     body = await _retry(ctx, "llm.reply", lambda: ctx.llm.complete(system=system, user=user))
 
+    # Gate the draft before it leaves the building (ADR-0018). A failed gate holds
+    # the email and flags the run for a human rather than sending questionable text.
+    gate = check_reply(body, customer_email=extracted.customer_email)
+
     sent = False
     message_id: str | None = None
-    if extracted.customer_email:
+    if extracted.customer_email and gate.ok:
         message = EmailMessage(
             to=extracted.customer_email,
             subject=f"Re: {extracted.subject or 'your request'}",
@@ -217,8 +223,18 @@ async def reply_node(state: AgentState, ctx: NodeContext) -> dict[str, Any]:
         )
         sent = True
         message_id = receipt.message_id
+    elif not gate.ok:
+        REPLY_GUARDRAIL_BLOCKED.inc()
+        logger.warning(
+            "reply_guardrail_blocked",
+            extra={"request_id": state.request_id, "detail": gate.reason},
+        )
 
-    return {"reply": Reply(body=body, sent=sent, message_id=message_id)}
+    return {
+        "reply": Reply(
+            body=body, sent=sent, message_id=message_id, guardrail_violations=gate.violations
+        )
+    }
 
 
 async def notify_node(state: AgentState, ctx: NodeContext) -> dict[str, Any]:
@@ -265,6 +281,7 @@ async def persist_node(state: AgentState, ctx: NodeContext) -> dict[str, Any]:
         "ticket_key": state.ticket.key if state.ticket else None,
         "ticket_url": state.ticket.url if state.ticket else None,
         "reply_sent": bool(state.reply and state.reply.sent),
+        "reply_held": bool(state.reply and state.reply.guardrail_violations),
         "notified": state.notification_sent,
         "knowledge_hits": [hit.id for hit in state.knowledge],
     }

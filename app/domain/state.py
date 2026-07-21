@@ -33,6 +33,9 @@ class Reply(BaseModel):
     body: str
     sent: bool = False
     message_id: str | None = None
+    # Populated when the output guardrail held the reply instead of sending it
+    # (ADR-0018). Empty means the reply passed the gate.
+    guardrail_violations: list[str] = Field(default_factory=list)
 
 
 class AgentState(BaseModel):
