@@ -96,13 +96,15 @@ async def test_callback_fires_on_completion(
 
     monkeypatch.setattr("app.jobs.worker.httpx.AsyncClient", _CaptureClient)
 
-    body = {**_OUTAGE, "callback_url": "https://hooks.example.com/done"}
+    # Public IP literal: passes the SSRF egress guard (ADR-0021) and resolves to
+    # itself, so the test needs no network. The POST itself is captured above.
+    body = {**_OUTAGE, "callback_url": "https://8.8.8.8/done"}
     resp = await client.post("/v1/requests?inline=true", json=body, headers=auth_headers)
     assert resp.status_code == 202
 
     assert len(calls) == 1
     url, sent = calls[0]
-    assert url == "https://hooks.example.com/done"
+    assert url == "https://8.8.8.8/done"
     assert sent["status"] == "completed"
     assert sent["request_type"] == "technical_support"
 
@@ -113,6 +115,35 @@ async def test_callback_url_must_be_http(
     body = {**_OUTAGE, "callback_url": "ftp://nope"}
     resp = await client.post("/v1/requests?inline=true", json=body, headers=auth_headers)
     assert resp.status_code == 422
+
+
+async def test_callback_to_private_address_is_not_delivered(
+    client: httpx.AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Accepted at intake (syntactically valid http), but the fire-time SSRF guard
+    # (ADR-0021) resolves the metadata IP as link-local and refuses to POST.
+    calls: list[str] = []
+
+    class _CaptureClient:
+        def __init__(self, *args: object, **kwargs: object) -> None: ...
+
+        async def __aenter__(self) -> _CaptureClient:
+            return self
+
+        async def __aexit__(self, *exc: object) -> bool:
+            return False
+
+        async def post(self, url: str, json: dict | None = None) -> None:
+            calls.append(url)
+
+    monkeypatch.setattr("app.jobs.worker.httpx.AsyncClient", _CaptureClient)
+
+    body = {**_OUTAGE, "callback_url": "http://169.254.169.254/latest/meta-data/"}
+    resp = await client.post("/v1/requests?inline=true", json=body, headers=auth_headers)
+    assert resp.status_code == 202
+    assert calls == [], "the worker must not POST to a link-local metadata address"
 
 
 # --- Task 5: admin queue endpoints ----------------------------------------- #

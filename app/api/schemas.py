@@ -14,6 +14,7 @@ import re
 from pydantic import BaseModel, Field, field_validator
 
 from app.domain.enums import Channel, Priority, RequestType, RunStatus
+from app.security.ssrf import validate_egress_url
 
 # Control characters except tab/newline/carriage-return. Stripped from user text.
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -64,8 +65,10 @@ class CreateRequest(BaseModel):
         value = value.strip()
         if not value:
             return None
-        if not value.startswith(("http://", "https://")):
-            raise ValueError("callback_url must be an http(s) URL")
+        # Cheap, synchronous checks only (scheme, no embedded credentials, host
+        # present). The authoritative private-IP resolution runs at fire time in
+        # the worker, since DNS can change between now and then (ADR-0021).
+        validate_egress_url(value, block_private=False)
         return value
 
 

@@ -38,6 +38,7 @@ from app.domain.enums import Channel, RunStatus
 from app.domain.state import AgentState
 from app.graph.build import NODE_NEEDS_REVIEW, NODE_REPORT, Pipeline
 from app.logging import configure_logging, correlation_id, get_logger
+from app.security.ssrf import EgressBlocked, validate_egress_url
 from app.tracing import configure_tracing, span
 
 logger = get_logger(__name__)
@@ -236,11 +237,13 @@ async def fire_callback(container: Container, request_id: str) -> None:
 
     Best-effort: a callback failure is logged but never fails the job or the run.
 
-    Security note: callback_url is caller-supplied, so this is an SSRF surface. It
-    is validated to be http(s) at intake; a production deployment should further
-    restrict it to an allowlist of egress hosts (see README "What I'd do next").
+    Security: callback_url is caller-supplied, so this is an SSRF surface. Before
+    POSTing we re-validate the URL and resolve its host, refusing private/loopback/
+    link-local (incl. cloud-metadata) targets unless an allowlist opts in
+    (ADR-0021). Re-checked here, not just at intake, because DNS can change.
     """
 
+    settings = container.settings
     async with session_scope(container.session_factory) as session:
         request = await Repository(session).get_request(request_id)
         if request is None or not request.callback_url:
@@ -254,6 +257,18 @@ async def fire_callback(container: Container, request_id: str) -> None:
             "error": request.error,
             "artifacts": [{"kind": a.kind, "ref": a.ref} for a in request.artifacts],
         }
+
+    try:
+        # getaddrinfo is blocking; keep it off the event loop.
+        await asyncio.to_thread(
+            validate_egress_url,
+            url,
+            allowed_hosts=settings.callback_allowed_hosts,
+            block_private=settings.callback_block_private,
+        )
+    except EgressBlocked as exc:
+        logger.warning("callback_blocked", extra={"request_id": request_id, "detail": str(exc)})
+        return
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:

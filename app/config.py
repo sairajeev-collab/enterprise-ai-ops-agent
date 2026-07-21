@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     # --- Ingress limits ---
     max_request_bytes: int = 1_048_576  # 1 MiB
 
+    # --- Egress / SSRF guard for caller-supplied callback_url (ADR-0021) ---
+    # Empty allowlist = allow any *public* host; block_private then rejects hosts
+    # resolving to private/loopback/link-local (incl. cloud metadata) addresses.
+    # Set an allowlist to restrict callbacks to known hosts.
+    callback_allowed_hosts: list[str] = Field(default_factory=list)
+    callback_block_private: bool = True
+
     # --- LLM ---
     llm_mode: IntegrationMode = IntegrationMode.SANDBOX
     llm_base_url: str = "http://localhost:11434/v1"
