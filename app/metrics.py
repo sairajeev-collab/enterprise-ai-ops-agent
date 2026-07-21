@@ -22,6 +22,12 @@ JOBS_DEAD_LETTERED = Counter("ops_jobs_dead_lettered_total", "Jobs parked on the
 
 QUEUE_DEPTH = Gauge("ops_queue_depth", "Current queue depth by queue", ["queue"])
 
+# Cost guardrails (ADR-0016).
+LLM_COST = Counter("ops_llm_cost_usd_total", "LLM spend in USD by model", ["model"])
+BUDGET_TRIPPED = Counter(
+    "ops_budget_cap_tripped_total", "Runs forced to the sandbox model by the daily cap"
+)
+
 # Re-exported so callers don't import prometheus_client directly.
 CONTENT_TYPE = CONTENT_TYPE_LATEST
 

@@ -15,8 +15,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 
 from app.adapters.base import LlmPort
+from app.cost import LlmUsage, record
 
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TASK_RE = re.compile(r"TASK:\s*(\w+)", re.IGNORECASE)
@@ -63,17 +65,33 @@ class SandboxLlm(LlmPort):
     async def complete(
         self, *, system: str, user: str, temperature: float = 0.0, json_mode: bool = False
     ) -> str:
+        started = time.perf_counter()
         task = self._task_of(system)
         if task == "classify":
-            return json.dumps(self._classify(user))
-        if task == "extract":
-            return json.dumps(self._extract(user))
-        if task == "draft_reply":
-            return self._draft_reply(user)
-        if task == "report":
-            return self._report(user)
-        # Unknown task: echo a short deterministic acknowledgement.
-        return "acknowledged"
+            result = json.dumps(self._classify(user))
+        elif task == "extract":
+            result = json.dumps(self._extract(user))
+        elif task == "draft_reply":
+            result = self._draft_reply(user)
+        elif task == "report":
+            result = self._report(user)
+        else:
+            # Unknown task: echo a short deterministic acknowledgement.
+            result = "acknowledged"
+
+        # Record a $0 usage row with a rough token estimate (~4 chars/token) so the
+        # cost ledger and /metrics/costs still reflect call volume in sandbox mode.
+        record(
+            LlmUsage(
+                provider="sandbox",
+                model="sandbox",
+                tokens_in=(len(system) + len(user)) // 4,
+                tokens_out=len(result) // 4,
+                cost_usd=0.0,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
+        )
+        return result
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         return [self._pseudo_vector(text) for text in texts]

@@ -52,6 +52,9 @@ class Request(Base):
     # Optional webhook the worker POSTs the final status to on completion/failure.
     callback_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
+    # Total LLM spend for this request, summed from llm_call_log at finalize.
+    cost_usd: Mapped[float] = mapped_column(default=0.0)
+
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -97,3 +100,29 @@ class Artifact(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     request: Mapped[Request] = relationship(back_populates="artifacts")
+
+
+class LlmCallLog(Base):
+    """One model call: what it cost, how long it took, which run it belonged to.
+
+    ``request_type`` is denormalized onto the row so cost-by-category queries don't
+    need to join back to ``request`` — this table is append-only and read by a
+    reporting endpoint, so the small duplication buys a simpler, index-only scan.
+    """
+
+    __tablename__ = "llm_call_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    request_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("request.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(64), index=True)
+    tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(default=0.0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    request_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True
+    )

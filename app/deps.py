@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from fastapi import Depends, Request
@@ -25,6 +25,7 @@ from app.adapters.jira.rest import JiraRestTickets
 from app.adapters.jira.sandbox import SandboxTickets
 from app.adapters.knowledge.qdrant_store import QdrantKnowledge
 from app.adapters.knowledge.sandbox import SandboxKnowledge
+from app.adapters.llm.failover import FailoverLlm
 from app.adapters.llm.openai_compatible import OpenAICompatibleLlm
 from app.adapters.llm.sandbox import SandboxLlm
 from app.adapters.slack.sandbox import SandboxNotifier
@@ -53,6 +54,9 @@ class Container:
     redis: Redis
     node_context: NodeContext
     pipeline: Pipeline
+    # Same graph, forced onto the free sandbox model. The worker routes here when
+    # the daily budget cap is tripped (ADR-0016), so cost can't run away.
+    degraded_pipeline: Pipeline
     queue: JobQueue
     rate_limiter: RateLimiter
     _closables: list[_Closable] = field(default_factory=list)
@@ -78,9 +82,12 @@ def _build_llm(settings: Settings, closables: list[_Closable]) -> LlmPort:
             chat_model=settings.llm_chat_model,
             embed_model=settings.llm_embed_model,
             timeout_seconds=settings.llm_timeout_seconds,
+            provider=settings.llm_provider,
         )
         closables.append(adapter)
-        return adapter
+        # Failover: when the paid provider has a bad moment, degrade to the free
+        # sandbox model rather than failing the run (ADR-0016).
+        return FailoverLlm([(settings.llm_provider, adapter), ("sandbox", SandboxLlm())])
     return SandboxLlm()
 
 
@@ -161,6 +168,7 @@ def build_container(settings: Settings, *, redis: Redis | None = None) -> Contai
     session_factory = create_session_factory(engine)
     redis = redis or Redis.from_url(settings.redis_url, decode_responses=True)
     node_context = build_node_context(settings, closables)
+    degraded_context = replace(node_context, llm=SandboxLlm())
     return Container(
         settings=settings,
         engine=engine,
@@ -168,6 +176,7 @@ def build_container(settings: Settings, *, redis: Redis | None = None) -> Contai
         redis=redis,
         node_context=node_context,
         pipeline=Pipeline(node_context),
+        degraded_pipeline=Pipeline(degraded_context),
         queue=JobQueue(
             redis,
             key=settings.job_queue_key,

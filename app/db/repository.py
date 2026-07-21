@@ -7,14 +7,16 @@ transaction boundary (see :func:`app.db.engine.session_scope`).
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Artifact, Request, RunStep, ServiceAccount
+from app.cost import LlmUsage
+from app.db.models import Artifact, LlmCallLog, Request, RunStep, ServiceAccount
 
 
 class Repository:
@@ -100,3 +102,49 @@ class Repository:
         self, request_id: str, *, kind: str, ref: str, payload: dict[str, Any]
     ) -> None:
         self._session.add(Artifact(request_id=request_id, kind=kind, ref=ref, payload=payload))
+
+    # --- cost accounting ---------------------------------------------------- #
+    async def add_llm_calls(
+        self, request_id: str, request_type: str | None, usages: list[LlmUsage]
+    ) -> float:
+        """Persist one run's LLM calls; return the total cost."""
+
+        total = 0.0
+        for usage in usages:
+            total += usage.cost_usd
+            self._session.add(
+                LlmCallLog(
+                    request_id=request_id,
+                    provider=usage.provider,
+                    model=usage.model,
+                    tokens_in=usage.tokens_in,
+                    tokens_out=usage.tokens_out,
+                    cost_usd=usage.cost_usd,
+                    latency_ms=usage.latency_ms,
+                    request_type=request_type,
+                )
+            )
+        return round(total, 6)
+
+    async def spend_since(self, since: dt.datetime) -> float:
+        """Total USD spent since ``since`` — the number the budget guardrail reads.
+
+        EXPLAIN: index scan on ix_llm_call_log_created_at then a SUM aggregate; the
+        created_at index makes the range the selective step. Cheap even with a
+        day's worth of rows.
+        """
+
+        stmt = select(func.coalesce(func.sum(LlmCallLog.cost_usd), 0.0)).where(
+            LlmCallLog.created_at >= since
+        )
+        return float((await self._session.execute(stmt)).scalar_one())
+
+    async def cost_rows_since(self, since: dt.datetime) -> list[LlmCallLog]:
+        """Rows for the reporting endpoint. Aggregation by day/model/type is done in
+        Python — fine at portfolio volume; swap for GROUP BY + date_trunc when this
+        table grows past a few hundred-thousand rows."""
+
+        stmt = (
+            select(LlmCallLog).where(LlmCallLog.created_at >= since).order_by(LlmCallLog.created_at)
+        )
+        return list((await self._session.execute(stmt)).scalars())

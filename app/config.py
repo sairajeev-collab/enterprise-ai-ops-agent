@@ -79,6 +79,14 @@ class Settings(BaseSettings):
     llm_chat_model: str = "llama3.1"
     llm_embed_model: str = "nomic-embed-text"
     llm_timeout_seconds: float = 60.0
+    llm_provider: str = "openai_compatible"  # label for cost logs / failover
+
+    # --- Cost guardrails (ADR-0016) ---
+    # Warn in logs past the soft limit; trip the pipeline to the free sandbox model
+    # past the hard cap so a runaway can't produce a surprise bill. Defaults are
+    # deliberately low — override per deployment.
+    daily_budget_warn_usd: float = 50.0
+    daily_budget_cap_usd: float = 100.0
 
     # --- Knowledge / Qdrant ---
     knowledge_mode: IntegrationMode = IntegrationMode.SANDBOX

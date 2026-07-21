@@ -199,6 +199,10 @@ async def _sse_pipeline(
             )
 
     final = state
+    # TODO(cost): the streaming path bypasses the worker, so LLM cost isn't logged
+    # for stream=true runs and they skip the budget circuit breaker. Low traffic
+    # today; wrap this loop in cost.open_ledger + persist like worker.process_request
+    # when streaming gets real use. See ADR-0016.
     try:
         async for node_name, delta in container.pipeline.stream(state):
             yield _sse("node_start", {"node": node_name})

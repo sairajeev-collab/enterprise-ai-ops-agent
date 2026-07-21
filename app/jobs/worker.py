@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime as dt
 import signal
 import time
 from enum import Enum
@@ -24,12 +25,13 @@ from pydantic import BaseModel
 from app import metrics
 from app.adapters.base import AdapterError, PermanentAdapterError, TransientAdapterError
 from app.config import get_settings
+from app.cost import LlmUsage, open_ledger
 from app.db.engine import session_scope
 from app.db.repository import Repository
 from app.deps import Container, build_container
 from app.domain.enums import Channel, RunStatus
 from app.domain.state import AgentState
-from app.graph.build import NODE_NEEDS_REVIEW, NODE_REPORT
+from app.graph.build import NODE_NEEDS_REVIEW, NODE_REPORT, Pipeline
 from app.logging import configure_logging, correlation_id, get_logger
 
 logger = get_logger(__name__)
@@ -65,13 +67,20 @@ async def process_request(container: Container, request_id: str) -> None:
             return
 
         started = time.perf_counter()
+        pipeline = await _select_pipeline(container)
         try:
             final = state
-            async for node_name, delta in container.pipeline.stream(state):
-                final = final.model_copy(update=delta)
-                async with session_scope(container.session_factory) as session:
-                    await Repository(session).save_step(request_id, node_name, to_jsonable(delta))
-            await finalize_run(container, request_id, final)
+            # Ledger is scoped to this run; the LLM adapters append to it, and we
+            # persist the rows after the run so cost is never lost mid-pipeline.
+            with open_ledger() as ledger:
+                async for node_name, delta in pipeline.stream(state):
+                    final = final.model_copy(update=delta)
+                    async with session_scope(container.session_factory) as session:
+                        await Repository(session).save_step(
+                            request_id, node_name, to_jsonable(delta)
+                        )
+                await finalize_run(container, request_id, final)
+            await _persist_cost(container, request_id, final, ledger)
             await fire_callback(container, request_id)
             metrics.JOBS_PROCESSED.labels(status=final.status.value).inc()
             logger.info("request_completed", extra={"status": final.status.value})
@@ -128,6 +137,47 @@ async def _load_state(container: Container, request_id: str) -> AgentState | Non
             raw_subject=request.raw_subject,
             raw_body=request.raw_body,
         )
+
+
+async def _select_pipeline(container: Container) -> Pipeline:
+    """Pick the real pipeline, or the sandbox-only degraded one when today's spend
+    has hit the hard cap. This is the cost circuit breaker (ADR-0016): the last line
+    of defense against a runaway bill, checked once per run.
+    """
+
+    settings = container.settings
+    start_of_day = dt.datetime.now(dt.UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    async with session_scope(container.session_factory) as session:
+        spend = await Repository(session).spend_since(start_of_day)
+
+    if spend >= settings.daily_budget_cap_usd:
+        logger.error(
+            "budget_cap_tripped",
+            extra={"spend_usd": round(spend, 2), "cap_usd": settings.daily_budget_cap_usd},
+        )
+        metrics.BUDGET_TRIPPED.inc()
+        return container.degraded_pipeline
+    if spend >= settings.daily_budget_warn_usd:
+        logger.warning(
+            "budget_warn",
+            extra={"spend_usd": round(spend, 2), "warn_usd": settings.daily_budget_warn_usd},
+        )
+    return container.pipeline
+
+
+async def _persist_cost(
+    container: Container, request_id: str, final: AgentState, ledger: list[LlmUsage]
+) -> None:
+    request_type = final.classification.request_type.value if final.classification else None
+    async with session_scope(container.session_factory) as session:
+        repo = Repository(session)
+        total = await repo.add_llm_calls(request_id, request_type, ledger)
+        request = await repo.get_request(request_id)
+        if request is not None:
+            await repo.update_request(request, cost_usd=total)
+    for usage in ledger:
+        if usage.cost_usd:
+            metrics.LLM_COST.labels(model=usage.model).inc(usage.cost_usd)
 
 
 async def finalize_run(container: Container, request_id: str, final: AgentState) -> None:

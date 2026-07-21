@@ -12,6 +12,7 @@ retry layer can act on them.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
@@ -21,6 +22,7 @@ from app.adapters.base import (
     PermanentAdapterError,
     TransientAdapterError,
 )
+from app.cost import LlmUsage, estimate_cost, record
 from app.logging import get_logger
 
 logger = get_logger(__name__)
@@ -35,10 +37,12 @@ class OpenAICompatibleLlm(LlmPort):
         chat_model: str,
         embed_model: str,
         timeout_seconds: float,
+        provider: str = "openai_compatible",
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._chat_model = chat_model
         self._embed_model = embed_model
+        self._provider = provider
         # An injected client is used by tests (httpx MockTransport); production
         # builds its own pooled client.
         self._client = client or httpx.AsyncClient(
@@ -61,13 +65,34 @@ class OpenAICompatibleLlm(LlmPort):
         if json_mode:
             # Supported by OpenAI, Ollama (>=0.5), vLLM, and most compatible servers.
             payload["response_format"] = {"type": "json_object"}
+
+        started = time.perf_counter()
         data = await self._post("/chat/completions", payload)
+        self._record_usage(data, started)
         try:
             return str(data["choices"][0]["message"]["content"]).strip()
         except (KeyError, IndexError, TypeError) as exc:
             raise PermanentAdapterError(
                 "Malformed chat completion response", code="llm_bad_response"
             ) from exc
+
+    def _record_usage(self, data: Any, started: float) -> None:
+        # Most OpenAI-compatible servers return a `usage` block; Ollama did not
+        # until recently, so treat missing/partial usage as zero rather than
+        # crashing the call over accounting.
+        usage = data.get("usage") if isinstance(data, dict) else None
+        tokens_in = int(usage.get("prompt_tokens", 0)) if isinstance(usage, dict) else 0
+        tokens_out = int(usage.get("completion_tokens", 0)) if isinstance(usage, dict) else 0
+        record(
+            LlmUsage(
+                provider=self._provider,
+                model=self._chat_model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                cost_usd=estimate_cost(self._chat_model, tokens_in, tokens_out),
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
