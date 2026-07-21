@@ -100,6 +100,7 @@ _HTML = """<!doctype html>
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-xs uppercase tracking-wider text-slate-400">3 · Live pipeline</h2>
         <span id="status-badge" class="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10"></span>
+        <button id="retry-btn" class="hidden text-xs ml-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30 hover:bg-rose-500/30">&#8635; Retry</button>
       </div>
       <div id="pipeline" class="flex flex-wrap gap-2"></div>
     </section>
@@ -111,6 +112,7 @@ _HTML = """<!doctype html>
   <script>
     const $ = (id) => document.getElementById(id);
     let token = localStorage.getItem("ops_token") || null;
+    let lastId = null;
     const NODES = ["classify","extract","retrieve","create_ticket","draft_reply","notify","persist","generate_report"];
     const EXAMPLES = [
       ["Outage", "Production is down, we're seeing an outage across all regions right now."],
@@ -147,6 +149,16 @@ _HTML = """<!doctype html>
         running:"bg-indigo-500/20 text-indigo-200", queued:"bg-slate-500/20 text-slate-200" };
       $("status-badge").className = "text-xs px-3 py-1 rounded-full border border-white/10 " + (map[status]||"bg-white/5");
       $("status-badge").textContent = (status||"").replace("_"," ");
+      // A failed run gets a retry button — the "get the lost refund out" affordance.
+      $("retry-btn").classList.toggle("hidden", !(status === "failed" && lastId));
+    }
+
+    async function retry(){
+      if (!lastId) return;
+      const r = await fetch("/v1/requests/" + lastId + "/retry", {
+        method: "POST", headers: { "Authorization": "Bearer " + token } });
+      if (r.ok) { badge("queued"); $("run-msg").textContent = "Requeued " + lastId; }
+      else { $("run-msg").textContent = "Retry failed (" + r.status + ")"; }
     }
 
     function card(title, inner){
@@ -221,7 +233,8 @@ _HTML = """<!doctype html>
         else if (line.startsWith("data:")) data += line.slice(5).trim();
       });
       let d = {}; try { d = JSON.parse(data); } catch(e){ return; }
-      if (ev === "node_start"){ if (pstate[d.node] !== "done") pstate[d.node] = "active"; renderPipeline(pstate); }
+      if (ev === "stream_start"){ lastId = d.request_id; }
+      else if (ev === "node_start"){ if (pstate[d.node] !== "done") pstate[d.node] = "active"; renderPipeline(pstate); }
       else if (ev === "node_delta"){ pstate[d.node] = "done"; renderPipeline(pstate); }
       else if (ev === "complete"){ badge(d.final.status); renderResults(d.final); }
       else if (ev === "error"){ badge("failed"); $("run-msg").textContent = d.detail || "pipeline error"; }
@@ -233,6 +246,7 @@ _HTML = """<!doctype html>
         headers:{"Content-Type":"application/json","Authorization":"Bearer "+token}, body: JSON.stringify(payload()) });
       if (!res.ok) throw new Error("Request failed ("+res.status+")");
       const { id } = await res.json();
+      lastId = id;
       await loadStatus(id, true);
     }
 
@@ -240,7 +254,7 @@ _HTML = """<!doctype html>
       const res = await fetch("/v1/requests", { method:"POST",
         headers:{"Content-Type":"application/json","Authorization":"Bearer "+token}, body: JSON.stringify(payload()) });
       if (!res.ok) throw new Error("Request failed ("+res.status+")");
-      const { id, status } = await res.json(); badge(status);
+      const { id, status } = await res.json(); lastId = id; badge(status);
       for (let i=0;i<10;i++){ await new Promise(r=>setTimeout(r,1500)); if (await loadStatus(id, false)) break; }
     }
 
@@ -269,7 +283,7 @@ _HTML = """<!doctype html>
       b.textContent=label; b.onclick=()=>{ $("body").value=text; };
       $("examples").appendChild(b);
     });
-    $("login").onclick = login; $("run").onclick = run;
+    $("login").onclick = login; $("run").onclick = run; $("retry-btn").onclick = retry;
     resetPipeline();
   </script>
 </body>

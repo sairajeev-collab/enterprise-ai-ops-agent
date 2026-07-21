@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import fakeredis.aioredis
 from app.jobs.queue import JobQueue
 
@@ -70,3 +72,19 @@ async def test_ack_is_final() -> None:
     # An acked job is gone; reaping finds nothing to redeliver.
     assert await q.reap() == (0, 0)
     assert await q.depth() == 0
+
+
+async def test_stuck_jobs_flags_aged_in_flight() -> None:
+    q = _queue(visibility=300)
+    await q.enqueue("r1")
+    await q.claim(timeout_seconds=1)
+
+    # Freshly claimed -> not stuck.
+    assert await q.stuck_jobs(older_than_seconds=300) == []
+
+    # Age the heartbeat past the threshold.
+    await q._redis.hset(q._heartbeats, "r1", str(time.time() - 1000))
+    stuck = await q.stuck_jobs(older_than_seconds=300)
+    assert len(stuck) == 1
+    assert stuck[0][0] == "r1"
+    assert stuck[0][1] >= 1000

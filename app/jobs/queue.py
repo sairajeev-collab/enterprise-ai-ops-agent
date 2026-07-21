@@ -106,6 +106,25 @@ class JobQueue:
         await self._redis.lpush(self._pending, request_id)  # type: ignore[misc]
         return True
 
+    async def stuck_jobs(self, *, older_than_seconds: int) -> list[tuple[str, float]]:
+        """In-flight jobs whose claim is older than the threshold, with their age.
+
+        This is an *operational* signal ("this run is taking abnormally long right
+        now"), distinct from :meth:`reap`, which is crash recovery. A single node
+        calling a slow model can sit here for minutes legitimately; the point is to
+        page a human before it becomes an hour.
+        """
+
+        now = time.time()
+        stuck: list[tuple[str, float]] = []
+        for raw in await self._redis.lrange(self._processing, 0, -1):  # type: ignore[misc]
+            request_id = str(raw)
+            claimed_at = await self._redis.hget(self._heartbeats, request_id)  # type: ignore[misc]
+            age = now - float(claimed_at) if claimed_at else float(older_than_seconds + 1)
+            if age >= older_than_seconds:
+                stuck.append((request_id, round(age, 1)))
+        return stuck
+
     async def depth(self) -> int:
         return int(await self._redis.llen(self._pending))  # type: ignore[misc]
 

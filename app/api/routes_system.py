@@ -23,12 +23,17 @@ async def queue_insights(
     request: Request,
     _principal: Principal = Depends(require_scope(SCOPE_REPORTS_READ)),
 ) -> dict[str, int]:
-    queue = get_container(request).queue
+    container = get_container(request)
+    queue = container.queue
     try:
+        stuck = await queue.stuck_jobs(
+            older_than_seconds=container.settings.stuck_job_threshold_seconds
+        )
         return {
             "pending": await queue.depth(),
             "processing": await queue.processing_depth(),
             "dead_letter": await queue.dead_letter_depth(),
+            "stuck": len(stuck),
         }
     except RedisError as exc:
         raise DependencyError("Queue backend (Redis) is unavailable") from exc

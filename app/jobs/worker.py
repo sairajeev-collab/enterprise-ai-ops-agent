@@ -23,7 +23,12 @@ import httpx
 from pydantic import BaseModel
 
 from app import metrics
-from app.adapters.base import AdapterError, PermanentAdapterError, TransientAdapterError
+from app.adapters.base import (
+    AdapterError,
+    NotifyMessage,
+    PermanentAdapterError,
+    TransientAdapterError,
+)
 from app.config import get_settings
 from app.cost import LlmUsage, open_ledger
 from app.db.engine import session_scope
@@ -347,8 +352,37 @@ async def _reaper_loop(container: Container, stop: asyncio.Event) -> None:
             metrics.QUEUE_DEPTH.labels(queue="dead_letter").set(
                 await container.queue.dead_letter_depth()
             )
+            await _check_stuck_jobs(container)
         except Exception as exc:  # noqa: BLE001 - a reaper failure must not kill the worker
             logger.error("reaper_error", exc_info=exc)
+
+
+async def _check_stuck_jobs(container: Container) -> None:
+    """Surface jobs that have been in-flight too long, and page #ops-alerts once."""
+
+    threshold = container.settings.stuck_job_threshold_seconds
+    stuck = await container.queue.stuck_jobs(older_than_seconds=threshold)
+    metrics.STUCK_JOBS.set(len(stuck))
+    if not stuck:
+        return
+
+    oldest = max(age for _, age in stuck)
+    logger.error("stuck_jobs_detected", extra={"count": len(stuck), "oldest_seconds": oldest})
+    ids = ", ".join(request_id for request_id, _ in stuck[:10])
+    message = NotifyMessage(
+        text=(
+            f":warning: {len(stuck)} stuck job(s) processing > {threshold}s "
+            f"(oldest {int(oldest)}s): {ids}"
+        ),
+        channel=container.settings.slack_default_channel,
+    )
+    # De-duped per reaper interval so we page once, not every sweep. Best-effort:
+    # a Slack outage must not take down the reaper.
+    window = int(time.time()) // max(container.settings.job_reaper_interval_seconds, 1)
+    with contextlib.suppress(AdapterError):
+        await container.node_context.notifier.notify(
+            message, idempotency_key=f"stuck-alert-{window}"
+        )
 
 
 def _install_signal_handlers(stop: asyncio.Event) -> None:

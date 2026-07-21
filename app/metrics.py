@@ -21,6 +21,7 @@ JOBS_REDELIVERED = Counter(
 JOBS_DEAD_LETTERED = Counter("ops_jobs_dead_lettered_total", "Jobs parked on the dead-letter queue")
 
 QUEUE_DEPTH = Gauge("ops_queue_depth", "Current queue depth by queue", ["queue"])
+STUCK_JOBS = Gauge("ops_stuck_jobs", "In-flight jobs older than the stuck threshold")
 
 # Cost guardrails (ADR-0016).
 LLM_COST = Counter("ops_llm_cost_usd_total", "LLM spend in USD by model", ["model"])

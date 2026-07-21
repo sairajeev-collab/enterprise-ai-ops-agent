@@ -123,7 +123,7 @@ async def test_queue_insights(
     resp = await client.get("/system/queue", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert body == {"pending": 1, "processing": 0, "dead_letter": 0}
+    assert body == {"pending": 1, "processing": 0, "dead_letter": 0, "stuck": 0}
 
 
 async def test_replay_from_dead_letter(

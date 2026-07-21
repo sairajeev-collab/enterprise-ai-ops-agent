@@ -29,7 +29,7 @@ from app.db.repository import Repository
 from app.deps import Container, enforce_rate_limit, get_container, get_repository
 from app.domain.enums import Channel, Priority, RequestType, RunStatus
 from app.domain.state import AgentState
-from app.errors import NotFoundError
+from app.errors import NotFoundError, ValidationAppError
 from app.jobs.worker import finalize_run, fire_callback, process_request, to_jsonable
 from app.logging import get_logger
 from app.security.auth import SCOPE_REPORTS_READ, SCOPE_REQUESTS_WRITE, get_principal, require_scope
@@ -161,6 +161,34 @@ async def get_request_status(
     if record is None:
         raise NotFoundError(f"Request '{request_id}' not found")
     return _to_status(record)
+
+
+@router.post("/requests/{request_id}/retry", status_code=202)
+async def retry_request(
+    request_id: str,
+    request: Request,
+    _principal: Principal = Depends(require_scope(SCOPE_REQUESTS_WRITE)),
+) -> dict[str, object]:
+    """Re-queue a failed request. This is the "get the lost refund out the door"
+    button: after a permanent failure or exhausted retries, an operator can push it
+    back through once the underlying cause is fixed. Idempotent nodes make the
+    re-run safe — no duplicate ticket/email/Slack."""
+
+    container = get_container(request)
+    async with session_scope(container.session_factory) as session:
+        repo = Repository(session)
+        record = await repo.get_request(request_id)
+        if record is None:
+            raise NotFoundError(f"Request '{request_id}' not found")
+        if record.status != RunStatus.FAILED:
+            raise ValidationAppError(
+                f"only failed requests can be retried (status is '{record.status}')"
+            )
+        # Fresh start: clear attempts so the re-run gets a full set again.
+        await repo.update_request(record, status=RunStatus.QUEUED, attempts=0, error=None)
+
+    await container.queue.enqueue(request_id)
+    return {"request_id": request_id, "status": RunStatus.QUEUED.value}
 
 
 @router.get("/requests/{request_id}/report")
