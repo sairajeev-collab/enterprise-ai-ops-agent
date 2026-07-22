@@ -14,6 +14,7 @@ import json
 import sys
 
 from app.config import get_settings
+from app.cost import current_total_usd, open_ledger
 from app.logging import configure_logging
 
 from evals.harness import (
@@ -32,14 +33,28 @@ async def _run(min_accuracy: float, min_guardrail: float, json_path: str | None)
     settings = get_settings()
     configure_logging(settings.log_level)
 
+    # Meter the run so a real-model eval reports what it actually cost (ADR-0016).
+    # $0 in sandbox mode, and the line still prints — the number is measured here,
+    # not asserted in a README.
     ctx = build_eval_context(build_llm(settings))
-    results = await run_cases(ctx, default_cases())
+    with open_ledger():
+        results = await run_cases(ctx, default_cases())
+        run_cost = current_total_usd()
     summary = summarize(results, model=model_label(settings))
+    per_case = run_cost / len(results) if results else 0.0
 
     print(format_report(summary))
+    print(
+        f"run cost:                  ${run_cost:.4f} (${per_case:.4f}/case, est. published rates)"
+    )
     if json_path:
+        payload = {
+            **to_dict(summary),
+            "run_cost_usd": round(run_cost, 6),
+            "cost_per_case_usd": round(per_case, 6),
+        }
         with open(json_path, "w", encoding="utf-8") as handle:
-            json.dump(to_dict(summary), handle, indent=2)
+            json.dump(payload, handle, indent=2)
         print(f"\nWrote {json_path}")
 
     accuracy = summary.classification.accuracy

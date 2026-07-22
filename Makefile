@@ -36,6 +36,15 @@ bench: ## Run the performance benchmark (sandbox model, in-process)
 idempotency-check: ## Assert every external idempotency key is deterministic
 	python -m scripts.idempotency_check
 
+# Requires OPENAI_API_KEY in the environment. Costs real money (~$0.01 with
+# gpt-4o-mini); the run prints what it actually spent. See docs/REAL-MODEL-EVAL.md.
+eval-real: ## Score a real model (gpt-4o-mini) and write real-model-report.json
+	LLM_MODE=real \
+	LLM_BASE_URL=https://api.openai.com/v1 \
+	LLM_API_KEY=$$OPENAI_API_KEY \
+	LLM_CHAT_MODEL=gpt-4o-mini \
+	python -m evals --json real-model-report.json
+
 up: ## Start local stack (postgres, redis, qdrant, ollama, api, worker)
 	docker compose up --build
 
