@@ -24,4 +24,4 @@ half is ADR-0019.
 
 - One id ties API and worker log lines together for any request.
 - JSON logs drop straight into a log aggregator with queryable fields.
-- The contextvar makes the id ambient — nodes don't have to thread it manually.
+- The contextvar makes the id ambient. Nodes don't have to thread it manually.

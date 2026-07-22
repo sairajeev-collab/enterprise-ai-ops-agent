@@ -5,7 +5,7 @@ node drafts with an LLM and then *emails a real customer*. Everything else lands
 in a Jira ticket or a Slack channel a human reads; the email leaves the building.
 So before it sends, the draft passes a deterministic gate here (ADR-0018).
 
-These checks are intentionally boring and rule-based — regex and length, no model
+These checks are intentionally boring and rule-based. Regex and length, no model
 judging a model. A guardrail you can't reason about isn't a guardrail. The gate is
 conservative: on any violation the worker holds the email and flags the run for a
 human instead of sending. False positives cost a human glance; a false negative
@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-# Loose but serviceable email matcher — we only need to notice that the draft
+# Loose but serviceable email matcher. We only need to notice that the draft
 # *contains an address*, not to validate deliverability.
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 

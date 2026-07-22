@@ -3,7 +3,7 @@
 Why: a single LLM provider is a single point of failure. When OpenAI 429s during a
 traffic spike, or a region has a bad hour, the choice is "fail the customer's
 ticket" or "answer with something". This tries providers in order and falls
-through on *transient* errors only — a 400 is a bad request everywhere, so we don't
+through on *transient* errors only. A 400 is a bad request everywhere, so we don't
 burn three providers on it.
 
 The default chain ends in the sandbox model. That's deliberate graceful
@@ -12,7 +12,7 @@ customer. The run is tagged so you can see in the cost log when it happened.
 
 Honest scope (ADR-0016): the chain is generic over ``LlmPort``, but only the
 OpenAI-compatible + sandbox links are wired here. Adding Anthropic or Google is a
-new adapter in the list, not a rewrite — I haven't built those because I can't test
+new adapter in the list, not a rewrite. I haven't built those because I can't test
 them without paid keys, and shipping an untested integration is worse than not
 shipping it.
 """

@@ -1,14 +1,14 @@
 """Optional OpenTelemetry tracing.
 
-The pipeline crosses a process boundary — the API enqueues a job and a separate
-worker runs the LangGraph stages — so "why was this one request slow?" is a
+The pipeline crosses a process boundary. The API enqueues a job and a separate
+worker runs the LangGraph stages, so "why was this one request slow?" is a
 distributed-tracing question, not a log-grep question. This module answers it
 *when you want it*, and costs nothing when you don't.
 
 Design, mirroring the Sentry seam in ``observability.py``: tracing is opt-in and
 dependency-free. With no ``OTEL_EXPORTER_OTLP_ENDPOINT`` set (the default, and all
 of CI), :func:`configure_tracing` is a no-op and the OpenTelemetry SDK is never
-imported — so the ``otel`` extra is genuinely optional. Set the endpoint and
+imported, so the ``otel`` extra is genuinely optional. Set the endpoint and
 install the extra, and spans start flowing to a collector.
 
 The :func:`span` context manager is always safe to call. Until tracing is

@@ -23,9 +23,9 @@ Add a deterministic output guardrail (`app/guardrails.py`) that gates the drafte
 reply before the `reply` node sends it. On any violation the node **holds the
 email** (does not send), records the reasons on `Reply.guardrail_violations`,
 increments `ops_reply_guardrail_blocked_total`, and lets the rest of the pipeline
-complete — the ticket is still opened, so a human picks the reply up from there.
+complete. The ticket is still opened, so a human picks the reply up from there.
 
-The checks are rule-based on purpose — regex and length, no model grading a model:
+The checks are rule-based on purpose. Regex and length, no model grading a model:
 
 - **Length floor/ceiling.** Rejects degenerate ("OK") and runaway generations.
 - **Foreign-address leak.** Any email address in the body that isn't the intended
@@ -44,7 +44,7 @@ attributable.
 
 A second model scoring the first is non-deterministic, adds cost and latency to
 the customer path, and is itself injectable. For the failure modes that actually
-email something harmful — leaks, echoes, empty/runaway text — a regex is stricter,
+email something harmful. Leaks, echoes, empty/runaway text. A regex is stricter,
 faster, and auditable. We deliberately do **not** try to judge tone or factual
 accuracy here; a rule can't, and pretending otherwise would be theater.
 
@@ -52,7 +52,7 @@ accuracy here; a rule can't, and pretending otherwise would be theater.
 
 - **The guardrail is a denylist, not a proof of safety.** It catches the known
   bad shapes above. A fluent, plausible-but-wrong reply with no leak, no marker,
-  and normal length passes — the human-review routing on low confidence is the
+  and normal length passes. The human-review routing on low confidence is the
   backstop for "wrong," not this.
 - **The email/name matcher is loose.** It flags addresses; it won't catch a phone
   number or a mailing address leak. Scope is deliberately narrow and stated.

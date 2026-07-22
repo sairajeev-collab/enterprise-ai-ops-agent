@@ -34,7 +34,7 @@ async def _run(min_accuracy: float, min_guardrail: float, json_path: str | None)
     configure_logging(settings.log_level)
 
     # Meter the run so a real-model eval reports what it actually cost (ADR-0016).
-    # $0 in sandbox mode, and the line still prints — the number is measured here,
+    # $0 in sandbox mode, and the line still prints. The number is measured here,
     # not asserted in a README.
     ctx = build_eval_context(build_llm(settings))
     with open_ledger():

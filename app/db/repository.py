@@ -127,7 +127,7 @@ class Repository:
         return round(total, 6)
 
     async def spend_since(self, since: dt.datetime) -> float:
-        """Total USD spent since ``since`` — the number the budget guardrail reads.
+        """Total USD spent since ``since``. The number the budget guardrail reads.
 
         EXPLAIN: index scan on ix_llm_call_log_created_at then a SUM aggregate; the
         created_at index makes the range the selective step. Cheap even with a
@@ -141,7 +141,7 @@ class Repository:
 
     async def cost_rows_since(self, since: dt.datetime) -> list[LlmCallLog]:
         """Rows for the reporting endpoint. Aggregation by day/model/type is done in
-        Python — fine at portfolio volume; swap for GROUP BY + date_trunc when this
+        Python. Fine at portfolio volume; swap for GROUP BY + date_trunc when this
         table grows past a few hundred-thousand rows."""
 
         stmt = (

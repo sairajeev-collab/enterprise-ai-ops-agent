@@ -5,7 +5,7 @@
 
 ## Context
 
-For an AI system, the highest-risk failure is not a crash — it's the model
+For an AI system, the highest-risk failure is not a crash. It's the model
 quietly getting worse: a prompt tweak, a model swap, or a dependency bump that
 degrades classification or extraction. Unit tests over deterministic sandbox
 logic cannot catch that, and we had no way to measure real-model quality or
@@ -21,7 +21,7 @@ drives the *production* `classify` and `extract` nodes over it and reports:
 - classification accuracy and **macro-F1** with per-class precision/recall,
 - priority accuracy,
 - email-extraction accuracy,
-- **confidence calibration** — mean model confidence on correct vs incorrect
+- **confidence calibration**. Mean model confidence on correct vs incorrect
   predictions, which tells us whether the `needs_review` threshold is meaningful.
 
 **One harness, any model.** The same code evaluates the deterministic sandbox
@@ -30,8 +30,8 @@ comparison a config change, not a rewrite.
 
 **Two gates in CI:**
 
-1. `python -m evals --min-accuracy 0.90` runs against the sandbox — fully
-   deterministic, no secrets — and fails the build on a regression. The sandbox
+1. `python -m evals --min-accuracy 0.90` runs against the sandbox. Fully
+   deterministic, no secrets, and fails the build on a regression. The sandbox
    currently scores 95.8% accuracy / 0.96 macro-F1, so the gate has headroom.
 2. A **live smoke test** (`pytest -m smoke`) exercises the real HTTP adapter,
    JSON-mode structured output, embeddings, and the classify node against a live

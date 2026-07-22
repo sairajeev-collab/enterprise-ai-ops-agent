@@ -6,7 +6,7 @@ takes about twenty minutes and roughly a cent. This is the procedure.
 
 > **Status: not yet run.** The results table below is a template with blanks. Until
 > it's filled in with a real run, the README's claim stays "real-model accuracy is
-> unverified" — that's deliberate (ADR-0020), not an oversight.
+> unverified". That's deliberate (ADR-0020), not an oversight.
 
 ## Run it
 
@@ -16,7 +16,7 @@ make eval-real
 ```
 
 That runs the 24-case golden set against `gpt-4o-mini` and writes
-`real-model-report.json`. The run prints what it actually spent — cost is
+`real-model-report.json`. The run prints what it actually spent. Cost is
 **metered from the response `usage` block**, not estimated by hand.
 
 To try a stronger model, override the one variable:
@@ -26,7 +26,7 @@ LLM_CHAT_MODEL=gpt-4o make eval-real
 ```
 
 Any OpenAI-compatible endpoint works the same way (vLLM, Together, a local
-Ollama) — change `LLM_BASE_URL`.
+Ollama). Change `LLM_BASE_URL`.
 
 ### What it costs
 
@@ -47,7 +47,7 @@ the interesting one is the last:
 | priority accuracy | 83.3% | _TBD_ | |
 | email extraction | 100% | _TBD_ | |
 | mean confidence (correct) | 0.83 | _TBD_ | |
-| mean confidence (**wrong**) | 0.00 | _TBD_ | calibration — see below |
+| mean confidence (**wrong**) | 0.00 | _TBD_ | calibration; see below |
 | run cost | $0.0000 | _TBD_ | |
 | cost per case | $0.0000 | _TBD_ | |
 
@@ -67,6 +67,6 @@ It converts the honest-but-weak claim *"real-model accuracy is unverified"* into
 *"measured: N% on gpt-4o-mini at $X per run, and here's the failure mode."* That's
 a specific, defensible sentence in an interview, and it costs about a cent.
 
-Record the result here even if it's unflattering — especially if it's unflattering.
+Record the result here even if it's unflattering. Especially if it's unflattering.
 A documented failure mode is evidence of engineering judgment; a suspiciously clean
 number invites a question you can't answer.

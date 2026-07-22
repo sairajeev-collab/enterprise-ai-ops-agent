@@ -8,7 +8,7 @@ How to see what the system is doing, and what it's costing. Design rationale is 
 | Layer | Default | Turn it on |
 |-------|---------|-----------|
 | Prometheus metrics + Grafana dashboard | always exposed at `/metrics` | `docker compose --profile observability up` |
-| Correlated structured logs | always on | — |
+| Correlated structured logs | always on |. |
 | Sentry error tracking | off | set `SENTRY_DSN` |
 | OpenTelemetry tracing | off (no-op) | set `OTEL_EXPORTER_OTLP_ENDPOINT`, install `.[otel]` |
 
@@ -43,13 +43,13 @@ docker compose --profile observability up
 - Prometheus: <http://localhost:9090>
 
 > **Honest note:** the dashboard panels are empty until Prometheus has scraped a
-> running instance under some traffic. This repo has never run at load — the value
+> running instance under some traffic. This repo has never run at load. The value
 > here is a correct dashboard *definition* wired to the real metric names, not a
 > screenshot of invented data.
 
 ## Tracing
 
-Off by default and dependency-free — with no `OTEL_EXPORTER_OTLP_ENDPOINT` the OTel
+Off by default and dependency-free. With no `OTEL_EXPORTER_OTLP_ENDPOINT` the OTel
 SDK isn't even imported. To turn it on:
 
 ```bash
@@ -61,7 +61,7 @@ export OTEL_SERVICE_NAME=ops-agent
 The worker emits one span per pipeline run (`pipeline.run`), tagged with
 `request.id`, `run.status`, and `run.cost_usd`; the FastAPI app is auto-instrumented
 so a trace joins the API enqueue to the worker run via the shared request id. The
-tracing round-trip against a real collector has **not** been exercised here — it's a
+tracing round-trip against a real collector has **not** been exercised here. It's a
 wired seam, labeled as such.
 
 ## Correlating a single request

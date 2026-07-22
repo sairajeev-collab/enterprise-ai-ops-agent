@@ -6,7 +6,7 @@
 ## Context
 
 We have two distinct persistence needs: (1) durable, relational operational state
-— requests, per-node run steps, produced artifacts, audit trail — with strong
+— requests, per-node run steps, produced artifacts, audit trail. With strong
 consistency and queryability; and (2) semantic retrieval over a company knowledge
 base to ground the agent's answers. These have different access patterns and
 should not be forced into one store.
@@ -17,7 +17,7 @@ should not be forced into one store.
   async) with **Alembic** migrations. Core tables: `request` (intake + status),
   `run_step` (per-node checkpoint for idempotency/resumability), `artifact`
   (ticket refs, reply bodies, reports), and `service_account` (auth). All schema
-  changes go through migrations — no `create_all` in production paths.
+  changes go through migrations, no `create_all` in production paths.
 - **Qdrant** stores embedded knowledge-base chunks for semantic search in the
   `retrieve` node, behind the `KnowledgePort`. Embeddings are produced by the LLM
   adapter's embedding endpoint. A `scripts/seed_knowledge.py` loads a small,

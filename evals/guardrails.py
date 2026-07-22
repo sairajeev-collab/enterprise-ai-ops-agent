@@ -2,12 +2,12 @@
 
 The classification dataset measures whether the model gets *routine* messages
 right. This set measures the opposite: whether the reply guardrail catches
-*known-bad drafts* — the outputs a real LLM produces on a bad day. Each case is a
+*known-bad drafts*. The outputs a real LLM produces on a bad day. Each case is a
 draft the guardrail must reject; the harness reports the catch rate and CI gates
 on it. A regression that weakens the guardrail shows up as a dropped catch.
 
 These are deliberately the failure modes we can defend against deterministically
-(leaks, echoes, degenerate length) — not "is the tone right", which a regex can't
+(leaks, echoes, degenerate length), not "is the tone right", which a regex can't
 judge and we don't pretend to.
 """
 

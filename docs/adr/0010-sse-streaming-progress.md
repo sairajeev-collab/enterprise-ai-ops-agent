@@ -5,8 +5,8 @@
 
 ## Context
 
-A request runs through eight pipeline nodes and can take seconds. Callers — the
-built-in UI and any integrator — want to see progress, not stare at a spinner
+A request runs through eight pipeline nodes and can take seconds. Callers. The
+built-in UI and any integrator. Want to see progress, not stare at a spinner
 until a single blocking response returns. We needed a push channel from the API to
 the client for per-node updates.
 
@@ -23,7 +23,7 @@ there's one execution path, not two.
 ## Consequences
 
 - The UI shows live node-by-node progress with no polling.
-- No new protocol or dependency — it's HTTP and a generator.
+- No new protocol or dependency. It's HTTP and a generator.
 - **Known gap:** the synchronous SSE path runs the pipeline in the request and does
   not persist a cost row (there's a `TODO(cost)` marking it); the durable path is
   the async worker. SSE is for interactive/demo use, the queue is for production

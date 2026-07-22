@@ -9,14 +9,14 @@ deterministic **sandbox** model, **SQLite**, and **fakeredis**. That isolates th
 cost *our code* adds and makes the harness runnable anywhere with no
 infrastructure. It explicitly does **not** measure:
 
-- real LLM latency (the dominant term in production — typically 0.5–3 s/call),
+- real LLM latency (the dominant term in production. Typically 0.5–3 s/call),
 - real database concurrency (SQLite serializes through one connection and runs
   every query on a thread-pool executor; production uses PostgreSQL + asyncpg with
   a native-async connection pool),
 - multi-process / multi-host scaling.
 
 So the harness answers "how much overhead does the plumbing add, and how does the
-non-blocking ingest path behave?" — not "what is production throughput?". Getting
+non-blocking ingest path behave?", not "what is production throughput?". Getting
 the latter honestly requires load-testing a real deployment (see below).
 
 ## What was measured (single laptop, single process)
@@ -36,7 +36,7 @@ single shared connection make them a property of the harness, not the system.
 The architecture is designed so that performance reasoning is simple:
 
 - **Ingest is non-blocking.** `POST /v1/requests` validates, writes one row, and
-  enqueues — O(ms) of work. It never waits on the LLM. The API is stateless, so
+  enqueues. O(ms) of work. It never waits on the LLM. The API is stateless, so
   ingest capacity scales horizontally behind a load balancer and is effectively
   bounded by the database's write throughput, not by model latency.
 - **Processing is LLM-bound.** A worker's wall-clock per job is dominated by the

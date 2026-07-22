@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     job_reaper_interval_seconds: int = 30
     # After this many crash-redeliveries a job is parked on the dead-letter queue.
     job_max_redeliveries: int = 5
-    # A job still in-flight past this age is "stuck" — an operational alert, separate
+    # A job still in-flight past this age is "stuck". An operational alert, separate
     # from crash recovery. The reaper Slacks #ops-alerts when it sees one.
     stuck_job_threshold_seconds: int = 1800
 
@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     # --- Cost guardrails (ADR-0016) ---
     # Warn in logs past the soft limit; trip the pipeline to the free sandbox model
     # past the hard cap so a runaway can't produce a surprise bill. Defaults are
-    # deliberately low — override per deployment.
+    # deliberately low. Override per deployment.
     daily_budget_warn_usd: float = 50.0
     daily_budget_cap_usd: float = 100.0
 

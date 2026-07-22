@@ -1,6 +1,6 @@
 """End-to-end: a poisoned draft is held, not emailed (ADR-0018).
 
-The unit tests prove the guardrail's logic; this proves the *wiring* — that the
+The unit tests prove the guardrail's logic; this proves the *wiring*, that the
 reply node actually consults the guardrail and suppresses the email send on a
 violation, while a clean draft still goes out.
 """

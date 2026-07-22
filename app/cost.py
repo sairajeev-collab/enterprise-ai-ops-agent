@@ -8,10 +8,10 @@ the free sandbox model before the bill runs away.
 
 Two moving parts:
 
-* **Pricing** — published per-token rates, kept as plain constants. These are NOT
+* **Pricing**. Published per-token rates, kept as plain constants. These are NOT
   measured from our traffic; they're OpenAI's list prices and must be updated by
   hand when the vendor changes them (there is no pricing API). Sandbox is free.
-* **A request-scoped ledger** — a contextvar the adapters append to on every call.
+* **A request-scoped ledger**. A contextvar the adapters append to on every call.
   The worker opens it around a run, then persists the accumulated rows. Using a
   contextvar (not a return value) keeps ``LlmPort.complete`` a plain ``-> str`` so
   no node signature changes, and it's request-isolated under asyncio.
@@ -26,7 +26,7 @@ from collections.abc import Iterator
 from pydantic import BaseModel
 
 # USD per 1,000,000 tokens (input, output). Source: OpenAI published pricing.
-# Keep in sync by hand — vendor has no pricing endpoint. See ADR-0016.
+# Keep in sync by hand. Vendor has no pricing endpoint. See ADR-0016.
 PRICING: dict[str, tuple[float, float]] = {
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
@@ -52,13 +52,13 @@ class LlmUsage(BaseModel):
 
 def estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float:
     """Price a call from published rates. Unknown models are treated as free and
-    flagged by the caller — we would rather under-count than invent a number."""
+    flagged by the caller. We would rather under-count than invent a number."""
 
     in_rate, out_rate = PRICING.get(model, (0.0, 0.0))
     return round((tokens_in * in_rate + tokens_out * out_rate) / 1_000_000, 6)
 
 
-# Request-scoped accumulator. ``None`` means "no ledger open" — adapters called
+# Request-scoped accumulator. ``None`` means "no ledger open". Adapters called
 # outside a run (e.g. a one-off script) simply don't record, rather than leaking
 # into a global list.
 _ledger: contextvars.ContextVar[list[LlmUsage] | None] = contextvars.ContextVar(

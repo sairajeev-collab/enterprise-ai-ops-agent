@@ -1,7 +1,7 @@
 """Async database engine and session factory.
 
 Production runs PostgreSQL via asyncpg. The test suite runs the same ORM metadata
-against SQLite (aiosqlite) so the suite is fully hermetic — no database service
+against SQLite (aiosqlite) so the suite is fully hermetic, no database service
 required in CI. We special-case SQLite pooling so an in-memory database is shared
 across sessions within a test process.
 """

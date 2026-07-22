@@ -2,7 +2,7 @@
 
 Deterministic keyword-overlap retrieval over an in-process document list. Ships
 with a small, real seed corpus so the ``retrieve`` node returns useful grounding
-even before anyone runs the seed script. No network, no embeddings — ideal for
+even before anyone runs the seed script. No network, no embeddings. Ideal for
 CI and offline development.
 """
 

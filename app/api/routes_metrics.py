@@ -1,7 +1,7 @@
 """Observability endpoints.
 
 ``/metrics`` is the Prometheus scrape (public, meant for an internal scraper).
-``/metrics/costs`` is a human-readable spend report — that one is business data, so
+``/metrics/costs`` is a human-readable spend report, that one is business data, so
 it needs a token.
 """
 
@@ -34,7 +34,7 @@ async def cost_report(
 ) -> dict[str, object]:
     """Spend broken down by model, day, and request type over the last N days.
 
-    Aggregation is in Python (see Repository.cost_rows_since) — fine at this volume,
+    Aggregation is in Python (see Repository.cost_rows_since). Fine at this volume,
     and it keeps the query DB-agnostic (SQLite dev, Postgres prod). The day this
     table gets big, move it to GROUP BY + date_trunc.
     """

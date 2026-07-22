@@ -1,6 +1,6 @@
 """Retry-with-backoff for external calls.
 
-Only :class:`TransientAdapterError` is retried — permanent errors fail fast, and
+Only :class:`TransientAdapterError` is retried. Permanent errors fail fast, and
 non-adapter exceptions are never caught here (we don't swallow bugs). Backoff is
 exponential with optional jitter. ``sleep`` is injectable so tests run instantly
 and deterministically.

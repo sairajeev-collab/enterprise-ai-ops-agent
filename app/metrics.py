@@ -2,8 +2,8 @@
 
 Metric objects are process-global singletons (the Prometheus client model). They
 are incremented from the API middleware and the worker, and exposed at
-``/metrics`` for scraping. Labels are kept low-cardinality on purpose — no request
-ids or paths — so the series count stays bounded.
+``/metrics`` for scraping. Labels are kept low-cardinality on purpose, no request
+ids or paths, so the series count stays bounded.
 """
 
 from __future__ import annotations

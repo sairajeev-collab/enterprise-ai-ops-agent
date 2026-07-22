@@ -1,7 +1,7 @@
 """Unit tests for the real adapters.
 
 We drive the real HTTP/SMTP/Qdrant code paths with in-memory transports and
-fakes — no network — focusing on the behavior that matters: happy path, the
+fakes, no network. Focusing on the behavior that matters: happy path, the
 error-translation contract (transient vs permanent), and idempotency. This keeps
 the production adapters honest, not just the sandboxes.
 """

@@ -4,7 +4,7 @@ We emit one JSON object per line so logs are machine-parseable by any aggregator
 (Fly, Loki, CloudWatch) without a shipping agent. A contextvar carries the
 per-request/per-run correlation id so every line inside a unit of work can be
 grouped, which is the single most useful thing when debugging a distributed
-pipeline. Kept dependency-free on purpose — stdlib logging is enough here.
+pipeline. Kept dependency-free on purpose. Stdlib logging is enough here.
 """
 
 from __future__ import annotations

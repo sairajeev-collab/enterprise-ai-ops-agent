@@ -1,7 +1,7 @@
 # Security
 
-The threat model this system is built against, the controls in place, and — just
-as importantly — what it does *not* defend against. Honesty about the gaps is the
+The threat model this system is built against, the controls in place, and. Just
+as importantly. What it does *not* defend against. Honesty about the gaps is the
 point (ADR-0020); a security doc that only lists strengths is marketing.
 
 ## What we're protecting
@@ -23,22 +23,22 @@ abuse, and using the service as a proxy into the private network.
 | Runaway LLM cost | Daily budget **circuit breaker** forces the sandbox model at the cap | `cost.py`, worker, ADR-0016 |
 | Duplicate side effects on replay | Deterministic **idempotency keys** on every external call | ADR-0017 |
 | Info leak in transport | Baseline security headers (`nosniff`, `DENY` framing, `no-referrer`) | `observability.py` |
-| Secrets in the image | Config from env; `.env` git-ignored; `.dockerignore` keeps it out of the build context | — |
+| Secrets in the image | Config from env; `.env` git-ignored; `.dockerignore` keeps it out of the build context |. |
 
 ## Known limitations (what this does NOT do)
 
 - **JWT is symmetric (HS256) with no rotation or revocation list.** Fine for a
   single-service portfolio; a multi-service deploy wants asymmetric keys (RS256/JWKS)
-  and a revocation story. Tokens are bearer — anyone holding one is the principal.
+  and a revocation story. Tokens are bearer. Anyone holding one is the principal.
 - **No secrets manager.** Secrets come from the environment. There's no Vault/KMS
   integration; that's a deployment concern left to the host.
 - **The SSRF guard doesn't fully close DNS rebinding.** It resolves-and-checks but
   doesn't pin the connection to the vetted IP (ADR-0021 spells this out).
 - **The output guardrail is a denylist, not a safety proof.** It catches leaks,
-  scaffolding echoes, and degenerate/runaway text — not a fluent-but-wrong reply
+  scaffolding echoes, and degenerate/runaway text, not a fluent-but-wrong reply
   (ADR-0018). Low-confidence classifications route to human review as the backstop.
 - **Rate limiting is per-instance.** With multiple API instances behind a load
-  balancer the limit is per-process, not global — a shared-store limiter is future
+  balancer the limit is per-process, not global. A shared-store limiter is future
   work.
 - **No pen test, no SAST/dependency-scanning gate yet.** Dependencies are pinned;
   adding `pip-audit`/Dependabot to CI is a clear next step.

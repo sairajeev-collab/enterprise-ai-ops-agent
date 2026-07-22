@@ -9,8 +9,8 @@ Exception contract
 ------------------
 Adapters translate vendor-specific failures into exactly one of:
 
-* :class:`TransientAdapterError` — retrying may succeed (timeouts, 5xx, 429).
-* :class:`PermanentAdapterError` — retrying will not help (4xx, bad config).
+* :class:`TransientAdapterError`. Retrying may succeed (timeouts, 5xx, 429).
+* :class:`PermanentAdapterError`. Retrying will not help (4xx, bad config).
 
 The retry layer (:mod:`app.graph.retry`) keys off these types, so it never has to
 understand vendor error codes.

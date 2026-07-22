@@ -106,7 +106,7 @@ class LlmCallLog(Base):
     """One model call: what it cost, how long it took, which run it belonged to.
 
     ``request_type`` is denormalized onto the row so cost-by-category queries don't
-    need to join back to ``request`` — this table is append-only and read by a
+    need to join back to ``request``. This table is append-only and read by a
     reporting endpoint, so the small duplication buys a simpler, index-only scan.
     """
 

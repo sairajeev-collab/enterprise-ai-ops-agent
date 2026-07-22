@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Real problems you can hit running this repo, and the fix. Ordered roughly by how
-often they bite. If something here is wrong, it's a bug in the docs — fix it.
+often they bite. If something here is wrong, it's a bug in the docs. Fix it.
 
 ## Setup
 
@@ -42,7 +42,7 @@ The token is valid but missing a scope. `/v1/requests*` needs `requests:write`;
 ### API refuses to start in production
 By design (ADR-0013). Startup validation rejects the placeholder JWT secret, a
 secret under 32 chars, or a `real`-mode integration missing credentials. Read the
-startup error — it names the offending setting.
+startup error. It names the offending setting.
 
 ## Runtime
 
@@ -51,7 +51,7 @@ The worker isn't running or can't reach Redis. Check `docker compose logs worker
 and that `REDIS_URL` resolves. The API enqueues; only the worker drains the queue.
 
 ### A request went to `NEEDS_REVIEW`
-Not an error — the classifier's confidence was below threshold, so the graph routed
+Not an error. The classifier's confidence was below threshold, so the graph routed
 to human review instead of acting blindly (ADR-0006). The `review` artifact holds
 the reason.
 
@@ -69,7 +69,7 @@ wrong, or investigate the spend via `GET /metrics/costs`.
 
 ### Jobs pile up on the dead-letter queue
 They exhausted `MAX_ATTEMPTS` on a permanent error. Inspect them, fix the cause,
-then requeue — see [OPERATIONS.md](OPERATIONS.md#draining-the-dead-letter-queue).
+then requeue; see [OPERATIONS.md](OPERATIONS.md#draining-the-dead-letter-queue).
 
 ### `ops_stuck_jobs > 0`
 A job has been in-flight past `STUCK_JOB_THRESHOLD_SECONDS`. The reaper alerts on

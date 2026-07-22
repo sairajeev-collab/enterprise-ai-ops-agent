@@ -82,7 +82,7 @@ def test_unknown_recipient_treats_any_address_as_suspect() -> None:
 
 
 def test_every_poisoned_eval_draft_is_caught() -> None:
-    # This is the same corpus the eval harness gates on — pin it here too so a
+    # This is the same corpus the eval harness gates on. Pin it here too so a
     # regression fails a fast unit test, not just the eval job.
     for case in POISONED_DRAFTS:
         result = check_reply(case.body, customer_email=case.customer_email)

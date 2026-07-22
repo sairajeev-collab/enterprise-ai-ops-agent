@@ -2,7 +2,7 @@
 
 Simple and predictable: one counter per (key, window) with a TTL. Fixed windows
 can allow a burst at a boundary, which is an acceptable tradeoff here versus the
-complexity of a sliding log — the goal is abuse/flood protection, not billing.
+complexity of a sliding log. The goal is abuse/flood protection, not billing.
 The limiter is fail-open on Redis errors (we don't want the limiter to take the
 API down), but it logs loudly when that happens.
 """

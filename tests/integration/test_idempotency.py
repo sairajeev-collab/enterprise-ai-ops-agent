@@ -23,7 +23,7 @@ _BODY = "I need a refund for my invoice urgently. from Jane Smith jane@acme.com"
 
 
 async def test_replaying_one_request_creates_exactly_one_of_each() -> None:
-    # Shared, deduping adapters across every replay — the real Jira/email/Slack
+    # Shared, deduping adapters across every replay. The real Jira/email/Slack
     # adapters dedupe the same way (label search, Message-ID, keyed post).
     tickets = SandboxTickets()
     email = SandboxEmail()

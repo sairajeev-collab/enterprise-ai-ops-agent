@@ -117,7 +117,7 @@ async def run_cases(ctx: NodeContext, cases: list[EvalCase]) -> list[CaseResult]
 
 def guardrail_catch_rate() -> tuple[float, int]:
     """Fraction of known-bad drafts the guardrail rejects (and it must pass the
-    clean control). Deterministic — no model involved — so it's cheap to run every
+    clean control). Deterministic, no model involved, so it's cheap to run every
     time and gates against a weakened guardrail (ADR-0018)."""
 
     caught = sum(

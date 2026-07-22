@@ -2,12 +2,12 @@
 
 The only place this system makes an HTTP call to an address a *caller* chose is the
 completion callback: a request can carry a ``callback_url`` the worker POSTs to when
-the job finishes. Left unguarded that's a textbook SSRF — a caller points it at
+the job finishes. Left unguarded that's a textbook SSRF. A caller points it at
 ``http://169.254.169.254/`` (cloud metadata) or an internal service and uses our
 worker as a proxy into the private network.
 
 This module is the guard. It rejects non-http(s) URLs, URLs with embedded
-credentials, hosts outside an optional allowlist, and — the important part — any
+credentials, hosts outside an optional allowlist, and. The important part. Any
 host that resolves to a private, loopback, link-local, or otherwise non-public
 address. It's called at intake (cheap, fail-fast) and again at fire time, because
 the DNS answer can change between the two.
@@ -41,7 +41,7 @@ def _resolved_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Addre
 def _is_public(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     # Reject everything that isn't a normal routable public address: this covers
     # loopback (127/8, ::1), private (10/8, 172.16/12, 192.168/16, fc00::/7),
-    # link-local (169.254/16 — the cloud metadata range — and fe80::/10),
+    # link-local (169.254/16. The cloud metadata range, and fe80::/10),
     # multicast, and reserved/unspecified.
     return not (
         ip.is_private
@@ -63,7 +63,7 @@ def validate_egress_url(
 
     ``allowed_hosts`` (if non-empty) is a strict allowlist of hostnames; anything
     else is rejected regardless of the IP checks. ``block_private`` gates the
-    resolve-and-check-IP step — kept configurable so a genuinely internal
+    resolve-and-check-IP step. Kept configurable so a genuinely internal
     deployment can opt out deliberately, rather than the guard silently doing
     nothing.
     """

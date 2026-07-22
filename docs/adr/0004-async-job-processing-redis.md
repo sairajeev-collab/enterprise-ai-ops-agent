@@ -33,7 +33,7 @@ Idempotency is enforced two ways:
    (`req-<id>`, `req-<id>-reply`, `req-<id>-notify`). Jira dedupes by searching a
    correlation label before creating; email uses a deterministic `Message-ID`;
    Slack and all sandbox adapters dedupe by key. So a node that runs twice —
-   whether from an in-run retry or a full re-drive after a crash — produces the
+   whether from an in-run retry or a full re-drive after a crash. Produces the
    ticket/email/notification **at most once**. This makes re-execution safe.
 2. **Step-level checkpointing (audit + fast-forward).** As the graph streams, the
    worker persists each completed node's output delta to the `run_step` table

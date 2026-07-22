@@ -17,7 +17,7 @@ from app.config import Settings, get_settings
 from app.errors import AuthenticationError, AuthorizationError
 from app.security.jwt import Principal, decode_token
 
-# Scope constants — referenced by routes and token minting so they never drift.
+# Scope constants. Referenced by routes and token minting so they never drift.
 SCOPE_REQUESTS_WRITE = "requests:write"
 SCOPE_REPORTS_READ = "reports:read"
 
@@ -32,7 +32,7 @@ def verify_password(password: str, password_hash: str) -> bool:
     try:
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except ValueError:
-        # Malformed stored hash — treat as a failed verification, never crash auth.
+        # Malformed stored hash. Treat as a failed verification, never crash auth.
         return False
 
 

@@ -1,7 +1,7 @@
 """The "Ops Command Center" landing page (public).
 
 A single self-contained page served at ``/``: dark, glassmorphic, TailwindCSS via
-CDN, vanilla JS. It authenticates, submits a request (channel + message only — no
+CDN, vanilla JS. It authenticates, submits a request (channel + message only, no
 password on the submit step), visualizes the LangGraph pipeline node-by-node, and
 can stream live progress over Server-Sent Events (consumed via fetch + a stream
 reader, since EventSource cannot send auth headers or a POST body).

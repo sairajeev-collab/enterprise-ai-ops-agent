@@ -2,7 +2,7 @@
 
 Every node is an ``async`` function ``(state, ctx) -> dict`` that returns only the
 fields it changed. Nodes reach external systems exclusively through ``ctx`` ports,
-wrapped in :func:`retry_async`, and never touch the database — persistence is the
+wrapped in :func:`retry_async`, and never touch the database. Persistence is the
 worker's responsibility (ADR-0003/0004). This keeps each node independently
 unit-testable with sandbox adapters and no infrastructure.
 

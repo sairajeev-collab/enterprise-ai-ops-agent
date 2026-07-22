@@ -7,10 +7,10 @@
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 > Badges are self-reported from the local suite (`make cov`), not a hosted CI
-> service — the numbers are reproducible by running it.
+> service. The numbers are reproducible by running it.
 
-An AI system that turns inbound operational work — emails, support tickets, Slack
-messages, PDFs, invoices, meeting notes — into finished actions: it classifies the
+An AI system that turns inbound operational work. Emails, support tickets, Slack
+messages, PDFs, invoices, meeting notes. Into finished actions: it classifies the
 request, extracts the details, grounds itself in company knowledge, opens a Jira
 ticket, drafts and sends a customer reply, notifies the team on Slack, records
 everything in PostgreSQL, and produces a manager-facing report. The orchestration
@@ -24,7 +24,7 @@ has a sandbox implementation and the LLM defaults to local Ollama.
 
 ---
 
-## Project status — what's real, what isn't
+## Project status. What's real, what isn't
 
 An honest frame, because it's the thing most portfolio READMEs get wrong
 ([ADR-0020](docs/adr/0020-honest-documentation.md)):
@@ -39,7 +39,7 @@ An honest frame, because it's the thing most portfolio READMEs get wrong
   are empty until something scrapes a live instance; OpenTelemetry tracing is wired
   but not exercised against a real collector; capacity numbers need a deployed
   environment. These are labeled as such wherever they appear.
-- **Costs are published provider rates**, not a measured bill — there is no real LLM
+- **Costs are published provider rates**, not a measured bill. There is no real LLM
   spend to report because there's been no real deployment.
 
 There are no invented metrics, incidents, or screenshots anywhere in these docs. If
@@ -55,7 +55,7 @@ a number isn't reproducible from this repo, it says so.
   integration at a time and keep the rest sandboxed. See
   [ADR-0002](docs/adr/0002-hexagonal-ports-and-adapters.md).
 - **Explicit LangGraph state machine.** The pipeline is a fixed graph of pure
-  functions, not a free-form agent loop — which makes it inspectable, unit-testable
+  functions, not a free-form agent loop, which makes it inspectable, unit-testable
   node-by-node, and diagrammable. Low-confidence classifications are routed to human
   review instead of taking irreversible actions. See
   [ADR-0003](docs/adr/0003-langgraph-orchestration.md).
@@ -80,7 +80,7 @@ Each of these is a real mechanism with a test and an ADR, not a checkbox:
   ticket / email / Slack post; a CI check fails the build if any external key stops
   being a pure function of `request_id`. [ADR-0017](docs/adr/0017-idempotency-strategy.md)
 - **Output guardrails.** The one LLM output that reaches a customer — the emailed
-  reply — passes a deterministic gate (length, foreign-address leak, prompt-echo)
+  reply. Passes a deterministic gate (length, foreign-address leak, prompt-echo)
   before it sends; a held reply waits for a human. [ADR-0018](docs/adr/0018-output-guardrails.md)
 - **Observability.** Golden-signal + cost/guardrail metrics, a bundled Grafana
   dashboard, and opt-in OpenTelemetry tracing. [ADR-0019](docs/adr/0019-observability.md) ·
@@ -191,7 +191,7 @@ designated real end-to-end integrations. See
 
 | Method & path | Auth | Purpose |
 |---------------|------|---------|
-| `GET /` | public | **Ops Command Center** — dark, glassmorphic single-page UI (Tailwind) that authenticates, submits, and visualizes the pipeline live |
+| `GET /` | public | **Ops Command Center**. Dark, glassmorphic single-page UI (Tailwind) that authenticates, submits, and visualizes the pipeline live |
 | `GET /health` | public | Liveness + DB/Redis readiness |
 | `GET /metrics` | public | Prometheus metrics (HTTP, jobs, queue depth, dead-letters, LLM cost, guardrail holds) |
 | `GET /metrics/costs` | `reports:read` | LLM spend broken down by model / day / request type |
@@ -219,7 +219,7 @@ curl -N -X POST "localhost:8000/v1/requests?inline=true&stream=true" \
 
 ## Testing
 
-The suite is fully hermetic — SQLite stands in for Postgres, fakeredis for Redis,
+The suite is fully hermetic. SQLite stands in for Postgres, fakeredis for Redis,
 and every integration runs in sandbox mode. No services, no secrets.
 
 ```bash
@@ -234,7 +234,7 @@ Model quality is measured, not assumed. A labeled golden dataset
 ([`evals/dataset.py`](evals/dataset.py)) is run through the *production* classify
 and extract nodes; the harness reports accuracy, macro-F1 (per-class
 precision/recall), extraction accuracy, and confidence calibration. The **same
-harness** scores the deterministic sandbox model or a real one — swap with
+harness** scores the deterministic sandbox model or a real one. Swap with
 `LLM_MODE`.
 
 ```bash
@@ -248,13 +248,13 @@ attributable. The harness also scores an adversarial **guardrail** corpus and ga
 on the catch rate.
 
 **Read the sandbox number honestly:** on the deterministic sandbox model the
-classifier scores ~100% on the 24-case golden set — but that's a measure of the
+classifier scores ~100% on the 24-case golden set, but that's a measure of the
 *graph wiring*, not of any model's judgment. The sandbox is keyword-deterministic
 by design ([ADR-0011](docs/adr/0011-deterministic-sandbox-model.md)); its job is to
 catch regressions in the pipeline, and it says nothing about how GPT-4o would do.
 Real-model accuracy is a separate, hardware-gated exercise this machine couldn't
 run (documented, not faked). What the sandbox eval *does* prove: the graph parses,
-routes, and calibrates confidence (0.9+ on matches, 0.35 on unknowns — which is
+routes, and calibrates confidence (0.9+ on matches, 0.35 on unknowns, which is
 what justifies the `needs_review` threshold), and the guardrail catches 5/5 known-bad
 drafts. See [ADR-0009](docs/adr/0009-evaluation-and-quality-gates.md).
 
@@ -333,9 +333,9 @@ tests/        unit + integration (hermetic) + smoke (live, self-skipping)
 A self-contained web UI is served at **`/`** (open `http://localhost:8000/`): log
 in with the dev service account, submit a message, and watch the live pipeline
 light up node-by-node with the classification, ticket, drafted reply, and report.
-It's a thin demonstration surface over the API — no build step, no framework.
+It's a thin demonstration surface over the API, no build step, no framework.
 
-Or via the API directly — submitting a billing request and reading back the
+Or via the API directly. Submitting a billing request and reading back the
 completed run (sandbox mode):
 
 ```jsonc
@@ -357,19 +357,19 @@ completed run (sandbox mode):
 ```
 
 A message with no actionable intent (low classification confidence) short-circuits
-to `needs_review` and takes **no** irreversible action — no ticket, reply, or Slack
-post — which you can see reflected in the returned `status` and artifacts.
+to `needs_review` and takes **no** irreversible action, no ticket, reply, or Slack
+post, which you can see reflected in the returned `status` and artifacts.
 
 ## What I'd do next
 
-- **Deploy it and get real numbers** — the honest #1: run it under traffic so the
+- **Deploy it and get real numbers**. The honest #1: run it under traffic so the
   dashboard, tracing, and capacity model move from "wired" to "measured."
 - **RS256 + JWKS** so third parties can verify tokens without the shared secret.
 - **Durable graph checkpointer** (LangGraph Postgres saver) for true mid-graph
   resumption instead of idempotent re-drive.
 - **Outbox pattern** for external effects to make exactly-once auditable end-to-end.
 - **Shared-store rate limiting** (currently per-instance) and **`pip-audit`/Dependabot**
-  in CI — the security gaps SECURITY.md lists.
+  in CI. The security gaps SECURITY.md lists.
 - **Pin the SSRF connection to the vetted IP** to close the residual DNS-rebinding
   window ([ADR-0021](docs/adr/0021-ssrf-egress-guard.md)).
 - **PDF/invoice ingestion adapters** (the channels are modeled; parsing is stubbed

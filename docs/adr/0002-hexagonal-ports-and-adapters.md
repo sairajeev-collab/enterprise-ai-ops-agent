@@ -13,7 +13,7 @@ orchestration, and (c) keep credentials out of the codebase entirely.
 
 ## Decision
 
-Every external dependency sits behind a **port** — a `typing.Protocol` that
+Every external dependency sits behind a **port**. A `typing.Protocol` that
 declares the narrow operations the domain actually needs (e.g. `LlmPort.complete`,
 `TicketPort.create_ticket`, `NotifierPort.notify`). Each port has:
 
@@ -34,7 +34,7 @@ knowing vendor specifics.
 ## Consequences
 
 - The full pipeline runs and is fully testable with `*_MODE=sandbox` and no
-  secrets — this is the default for local dev and CI.
+  secrets. This is the default for local dev and CI.
 - Swapping Jira for, say, Linear is a new adapter file, not a refactor.
 - Slight indirection cost: one Protocol + one sandbox per integration. Worth it.
 - See [ADR-0005](0005-real-vs-sandbox-integrations.md) for which integration is

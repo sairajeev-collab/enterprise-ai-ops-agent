@@ -48,7 +48,7 @@ def test_missing_host_is_blocked() -> None:
 
 
 def test_allowlist_permits_listed_host_and_skips_ip_check() -> None:
-    # An allowlisted internal host is reachable on purpose — the operator opted in.
+    # An allowlisted internal host is reachable on purpose. The operator opted in.
     validate_egress_url("http://internal-hook.svc/notify", allowed_hosts=["internal-hook.svc"])
 
 

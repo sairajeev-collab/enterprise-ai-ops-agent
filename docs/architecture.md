@@ -1,6 +1,6 @@
 # Architecture
 
-Enterprise AI Operations Agent — a service that ingests inbound work (emails,
+Enterprise AI Operations Agent. A service that ingests inbound work (emails,
 support tickets, Slack messages, PDFs, invoices, meeting notes), runs a fixed
 LangGraph pipeline to understand and action it, and produces auditable outcomes:
 a Jira ticket, a customer reply, a Slack notification, a durable record, and a
@@ -40,7 +40,7 @@ flowchart LR
 ```
 
 Ports (`[[...]]`) are `typing.Protocol` seams. Each resolves to a real or sandbox
-adapter via `*_MODE` env flags — see [ADR-0002](adr/0002-hexagonal-ports-and-adapters.md)
+adapter via `*_MODE` env flags; see [ADR-0002](adr/0002-hexagonal-ports-and-adapters.md)
 and [ADR-0005](adr/0005-real-vs-sandbox-integrations.md).
 
 ## Agent graph

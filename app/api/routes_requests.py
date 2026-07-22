@@ -1,8 +1,8 @@
 """Request intake and status endpoints (protected).
 
 ``POST /v1/requests`` validates and persists a request, then either enqueues it
-for the worker (default, 202), runs it inline (``?inline=true``), or — with
-``?inline=true&stream=true`` — runs it inline while streaming per-node LangGraph
+for the worker (default, 202), runs it inline (``?inline=true``), or. With
+``?inline=true&stream=true``. Runs it inline while streaming per-node LangGraph
 progress back to the caller as Server-Sent Events. The row is always committed
 before any async work so the worker/stream never observes a missing request.
 """
@@ -172,7 +172,7 @@ async def retry_request(
     """Re-queue a failed request. This is the "get the lost refund out the door"
     button: after a permanent failure or exhausted retries, an operator can push it
     back through once the underlying cause is fixed. Idempotent nodes make the
-    re-run safe — no duplicate ticket/email/Slack."""
+    re-run safe, no duplicate ticket/email/Slack."""
 
     container = get_container(request)
     async with session_scope(container.session_factory) as session:

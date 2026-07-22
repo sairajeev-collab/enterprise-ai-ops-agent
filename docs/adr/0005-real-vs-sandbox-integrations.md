@@ -16,13 +16,13 @@ Two things are real by default:
 
 - **The LLM adapter** (`llm/openai_compatible.py`) targets any OpenAI-compatible
   endpoint, including a **local Ollama** server. This is the real "brain" and
-  requires no paid account — `OLLAMA` on localhost is the documented default.
+  requires no paid account. `OLLAMA` on localhost is the documented default.
 - **Slack** (`slack/webhook.py`) is the designated real *external SaaS*
   integration, wired end-to-end via a Slack **Incoming Webhook**. A webhook URL
-  is a single secret, posts real messages, and has no OAuth handshake — ideal for
+  is a single secret, posts real messages, and has no OAuth handshake. Ideal for
   a reproducible end-to-end demo.
 
-Every other external adapter — **Jira** (`jira/rest.py`), **email**
+Every other external adapter. **Jira** (`jira/rest.py`), **email**
 (`email/smtp.py`), and the **knowledge/vector** store (`knowledge/qdrant_store.py`)
 — ships with a working real adapter *and* a sandbox adapter, selected per
 integration via `*_MODE`. The default profile is:
@@ -37,7 +37,7 @@ integration via `*_MODE`. The default profile is:
 
 \* Slack defaults to sandbox so the project runs with zero secrets out of the
 box; set `SLACK_MODE=real` + `SLACK_WEBHOOK_URL` to light up the real path. The
-adapter, contract tests, and wiring are identical either way — only the env flag
+adapter, contract tests, and wiring are identical either way. Only the env flag
 changes.
 
 ## Consequences

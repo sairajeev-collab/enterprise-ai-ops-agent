@@ -322,7 +322,7 @@ async def run_worker(container: Container | None = None) -> None:
     container = container or build_container(settings)
 
     # Best-effort: provision knowledge storage. A miss here should not crash the
-    # worker — the retrieve node will surface a clear error per request instead.
+    # worker. The retrieve node will surface a clear error per request instead.
     with contextlib.suppress(AdapterError):
         await container.node_context.knowledge.ensure_ready()
 
