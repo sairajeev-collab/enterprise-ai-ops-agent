@@ -15,4 +15,7 @@ htmlcov
 !.env.example
 docs
 tests
+# Ignore markdown, but keep README.md: the Dockerfile COPYs it and pyproject
+# declares it as the package readme, so the build needs it in context.
 *.md
+!README.md
